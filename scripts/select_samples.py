@@ -26,4 +26,4 @@ samples_1 = samples[where_dif]
 samples = samples_1.append(samples_5, ignore_index=True)
 
 # Write TOR ID and NWDID to file
-samples[['TOR_ID', 'NWDID']].to_csv(args.output, delimiter='\t')
+samples[['TOR_ID', 'NWDID']].to_csv(args.output, sep='\t')
