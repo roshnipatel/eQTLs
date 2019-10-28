@@ -1,0 +1,18 @@
+{
+    "__default__" :
+    {
+        "queue"     : "pritch,owners,hns,normal",
+        "nodes"     : 1,
+        "tasks"     : 1,
+        "memory"    : 1000,
+        "time"      : "2:00:00",
+        "name"      : "{rule}",
+        "output"    : "slurm/{rule}.out",
+        "error"     : "slurm/{rule}.err"
+    },
+    "annotate_genes" :
+    {
+        "nodes"     : 2,
+        "memory"    : 5000
+    }
+}

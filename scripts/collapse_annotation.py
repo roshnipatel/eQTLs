@@ -42,19 +42,19 @@ class Annotation:
         Parse GTF and construct gene/transcript/exon hierarchy
         """
         self.genes = []
-            
+
         with open(gtfpath, 'r') as gtf:
             for (i,row) in enumerate(gtf):
                 row = row.strip().split('\t')
-                
+
                 if row[0][0]=='#': continue # skip header
-                
+
                 chrom = row[0]
                 annot_type = row[2]
                 start_pos = int(row[3])
                 end_pos  = int(row[4])
                 strand = row[6]
-                
+
                 attributes = defaultdict()
                 for a in row[8].replace('"', '').split(';')[:-1]:
                     kv = a.strip().split(' ')
@@ -62,7 +62,7 @@ class Annotation:
                         attributes[kv[0]] = kv[1]
                     else:
                         attributes.setdefault('tags', []).append(kv[1])
-                
+
                 if annot_type=='gene':
                     gene_id = attributes['gene_id']
                     g = Gene(gene_id, attributes['gene_name'], attributes['gene_type'], chrom, strand, start_pos, end_pos)
@@ -70,7 +70,7 @@ class Annotation:
                     g.phase = row[7]
                     g.attributes_string = row[8]
                     self.genes.append(g)
-               
+
                 elif annot_type=='transcript':
                     transcript_id = attributes['transcript_id']
                     t = Transcript(attributes.pop('transcript_id'), attributes.pop('transcript_name'), attributes.pop('transcript_type'), g, start_pos, end_pos)
@@ -85,9 +85,9 @@ class Annotation:
                     t.exons.append(e)
 
                 if np.mod(len(self.genes),1000)==0:
-                    print('Parsing GTF: {0:d} genes processed\r'.format(len(self.genes)), end='\r')
+                    print('Parsing GTF: {0:d} genes processed\r'.format(len(self.genes)))
             print('Parsing GTF: {0:d} genes processed\r'.format(len(self.genes)))
-        
+
         self.genes = np.array(self.genes)
 
 
@@ -147,7 +147,7 @@ def add_transcript_attributes(attributes_string):
     for k in add_list:
         if k not in attr_dict:
             attr_dict[k] = attr_dict[k.replace('transcript', 'gene')]
-    
+
     return '; '.join([k+' '+attr_dict[k] for k in attribute_order] + opt)+';'
 
 
@@ -238,7 +238,7 @@ def collapse_annotation(annot, transcript_gtf, collapsed_gtf, blacklist=set(), c
 
 
 if __name__=='__main__':
-    
+
     parser = argparse.ArgumentParser(description='Collapse isoforms into single transcript per gene and remove overlapping intervals between genes')
     parser.add_argument('transcript_gtf', help='Transcript annotation in GTF format')
     parser.add_argument('output_gtf', help='Name of the output file')
