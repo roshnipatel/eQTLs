@@ -79,6 +79,10 @@ def read_gct(gct_file, sample_ids=None, dtype=None):
         sample_ids = ['Name']+list(sample_ids)
 
     if gct_file.endswith('.gct.gz') or gct_file.endswith('.gct'):
+        if 'tpm' in gct_file: # Account for the fact that the TPM file I generated doesn't have the two weird header lines
+            skip = 0
+        else:
+            skip = 2
         if dtype is not None:
             with gzip.open(gct_file, 'rt') as gct:
                 gct.readline()
@@ -87,9 +91,9 @@ def read_gct(gct_file, sample_ids=None, dtype=None):
             dtypes = {i:dtype for i in sample_ids[2:]}
             dtypes['Name'] = str
             dtypes['Description'] = str
-            df = pd.read_csv(gct_file, sep='\t', skiprows=2, usecols=sample_ids, index_col=0, dtype=dtypes)
+            df = pd.read_csv(gct_file, sep='\t', skiprows=skip, usecols=sample_ids, index_col=0, dtype=dtypes)
         else:
-            df = pd.read_csv(gct_file, sep='\t', skiprows=2, usecols=sample_ids, index_col=0)
+            df = pd.read_csv(gct_file, sep='\t', skiprows=skip, usecols=sample_ids, index_col=0)
     elif gct_file.endswith('.parquet'):
         df = pd.read_parquet(gct_file, columns=sample_ids)
     elif gct_file.endswith('.ft'):  # feather format
@@ -108,9 +112,9 @@ def prepare_expression(counts_df, tpm_df, vcf_lookup_s, sample_frac_threshold=0.
     Genes are thresholded based on the following expression rules:
       TPM >= tpm_threshold in >= sample_frac_threshold*samples
       read counts >= count_threshold in sample_frac_threshold*samples
-    
+
     vcf_lookup: lookup table mapping sample IDs to VCF IDs
-    
+
     Between-sample normalization modes:
       tmm: TMM from edgeR
       qn:  quantile normalization
@@ -130,7 +134,8 @@ def prepare_expression(counts_df, tpm_df, vcf_lookup_s, sample_frac_threshold=0.
     # apply normalization
     if mode.lower()=='tmm':
         tmm_counts_df = rnaseqnorm.edgeR_cpm(counts_df, normalized_lib_sizes=True)
-        norm_df = rnaseqnorm.inverse_normal_transform(tmm_counts_df[mask])
+        masked = tmm_counts_df[mask]
+        norm_df = rnaseqnorm.inverse_normal_transform(masked)
     elif mode.lower()=='qn':
         qn_df = rnaseqnorm.normalize_quantiles(tpm_df.loc[mask])
         norm_df = rnaseqnorm.inverse_normal_transform(qn_df)

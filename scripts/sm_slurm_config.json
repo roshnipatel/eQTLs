@@ -14,5 +14,10 @@
     {
         "nodes"     : 2,
         "memory"    : 5000
+    },
+    "normalize_expression" :
+    {
+        "nodes"     : 2,
+        "memory"    : 15000
     }
 }
