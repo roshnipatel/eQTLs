@@ -1,3 +1,7 @@
 .DS_Store
 .snakemake
 ._*
+tmp
+tmp/*
+plots/*
+gtex_eqtl_V8.sif

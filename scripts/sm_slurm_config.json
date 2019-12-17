@@ -19,5 +19,9 @@
     {
         "nodes"     : 2,
         "memory"    : 15000
+    },
+    "partition_samples":
+    {
+        "memory"    : 15000
     }
 }
