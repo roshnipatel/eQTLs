@@ -8,7 +8,6 @@ rule all:
     input:
         DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt",
         DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
-        DATA_DIR + "fastqtl_output/merged_estimation_Afr-het.txt",
         DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
@@ -286,7 +285,6 @@ checkpoint partition_samples:
         """
         mkdir -p {params.output_dir}/ascertainment/Eur
         mkdir -p {params.output_dir}/estimation/Afr
-        mkdir -p {params.output_dir}/estimation/Afr-het
         mkdir -p {params.output_dir}/estimation/Eur
         conda activate py36
         python scripts/partition_samples.py --intersect {input.intersect} \
