@@ -5,3 +5,5 @@ tmp
 tmp/*
 plots/*
 gtex_eqtl_V8.sif
+src/__pycache__
+src/__pycache__/*
