@@ -7,6 +7,7 @@ shell.prefix("source ~/.bashrc; ")
 rule all:
     input:
         DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt",
+        DATA_DIR + "fastqtl_anc_het_output/merged_anc_het.txt",
         DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
         DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt"
 
@@ -89,7 +90,7 @@ rule normalize_expression:
 
 rule make_gene_list:
     input:
-        rules.normalize_expression.output.bed
+        ancient(rules.normalize_expression.output.bed)
     output:
         DATA_DIR + "all_genes_TSS.txt"
     shell:
@@ -101,7 +102,7 @@ rule make_gene_list:
 
 rule calculate_PEER:
     input:
-        bed=rules.normalize_expression.output.bed
+        bed=ancient(rules.normalize_expression.output.bed)
     output:
         res=DATA_DIR + "mesa.PEER_residuals.txt",
         alpha=DATA_DIR + "mesa.PEER_alpha.txt",
@@ -293,25 +294,6 @@ checkpoint partition_samples:
         conda deactivate
         """
 
-rule partition_anc_het:
-    input:
-        vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz",
-        tracts=DATA_DIR + "anc_tracts.bed"
-    output:
-        samples=directory(DATA_DIR + "fastqtl_sample_input/estimation/Afr-het"),
-        regions=directory(DATA_DIR + "fastqtl_region_input"),
-    params:
-        sample_dir=DATA_DIR + "fastqtl_sample_input/estimation/Afr-het",
-        region_dir=DATA_DIR + "fastqtl_region_input"
-    shell:
-        """
-        mkdir -p {params.sample_dir}
-        mkdir -p {params.region_dir}
-        conda activate py36
-        #TODO: write script
-        conda deactivate
-        """
-
 ################################# RUN FASTQTL #################################
 
 rule prep_pheno_file:
@@ -323,17 +305,6 @@ rule prep_pheno_file:
         """
         mkdir -p {params.output_dir}
         echo "{wildcards.gene}" > {output}
-        """
-
-rule prep_SNP_file:
-    output:
-        temp(DATA_DIR + "fastqtl_SNP_input/{SNP}.txt")
-    params:
-        output_dir=DATA_DIR + "fastqtl_SNP_input/"
-    shell:
-        """
-        mkdir -p {params.output_dir}
-        echo "{wildcards.SNP}" > {output}
         """
 
 rule ascertain_eQTLs:
@@ -393,34 +364,6 @@ rule estimate_eQTLs:
            --region chr$CHR:$REGION_START-$REGION_STOP
         """
 
-rule anc_het_eQTLs:
-    input:
-        vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz",
-        pheno=rules.normalize_expression.output.bed,
-        sample_input=DATA_DIR + "fastqtl_sample_input/estimation/Afr-het/{SNP}.txt",
-        SNP_input=rules.prep_SNP_file.output,
-        region_input=DATA_DIR + "fastqtl_region_input/{SNP}.txt",
-        covariates=rules.combine_covariates.output
-    output:
-        DATA_DIR + "fastqtl_output/estimation/Afr-het/{SNP}.txt"
-    singularity:
-        "gtex_eqtl_V8.sif"
-    params:
-        output_dir=DATA_DIR + "fastqtl_output/"
-    shell:
-        """
-        mkdir -p {params.output_dir}/estimation/Afr-het
-        CHR=$(cut -f1 {input.region_input})
-        REGION_START=$(cut -f2 input.region_input)
-        REGION_STOP=$(cut -f3 input.region_input)
-        fastQTL --vcf {input.vcf} --bed {input.pheno} \
-            --include-samples {input.sample_input} \
-            --include-sites {input.SNP_input} \
-            --include-covariates {input.covariates} \
-            --out {output} \
-            --region chr$CHR:$REGION_START-$REGION_STOP
-        """
-
 ##################################### RUN #####################################
 
 def merge_input(wildcards):
@@ -440,3 +383,86 @@ rule merge_output:
         """
         ls -l {params.dir} | wc -l > {output}
         """
+
+###################### ANCESTRY-HETEROZYGOUS INDIVIDUALS ######################
+# eQTLs in ancestry-heterozygous individuals  have to be called with a separate 
+# set of rules because I partition individuals by SNPs rather than by genes.
+# (Technically, you could also partition the Afr and Eur ancestry homozygous
+# groups by SNPs rather than genes, but I already went to the trouble of calling
+# eQTLs in those groups and I don't see any reason to duplicate the work.)
+
+rule partition_anc_het:
+    input:
+        vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz",
+        tracts=DATA_DIR + "anc_tracts.bed"
+    output:
+        samples=directory(DATA_DIR + "fastqtl_anc_het_sample_input"),
+        regions=directory(DATA_DIR + "fastqtl_region_input"),
+    params:
+        sample_dir=DATA_DIR + "fastqtl_anc_het_sample_input",
+        region_dir=DATA_DIR + "fastqtl_region_input"    
+    shell:
+        """
+        mkdir -p {params.sample_dir}
+        mkdir -p {params.region_dir}
+        conda activate py36
+        #TODO: write script
+        conda deactivate
+        """
+
+rule prep_SNP_file:
+    output:
+        temp(DATA_DIR + "fastqtl_SNP_input/{SNP}.txt")
+    params:
+        output_dir=DATA_DIR + "fastqtl_SNP_input/"
+    shell:
+        """
+        mkdir -p {params.output_dir}
+        echo "{wildcards.SNP}" > {output}
+        """
+
+rule anc_het_eQTLs:
+    input:
+        vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz",
+        pheno=rules.normalize_expression.output.bed,
+        sample_input=DATA_DIR + "fastqtl_anc_het_sample_input/{SNP}.txt",
+        SNP_input=rules.prep_SNP_file.output,
+        region_input=DATA_DIR + "fastqtl_region_input/{SNP}.txt",
+        covariates=rules.combine_covariates.output
+    output:
+        DATA_DIR + "fastqtl_anc_het_output/{SNP}.txt"
+    singularity:
+        "gtex_eqtl_V8.sif"
+    params:
+        output_dir=DATA_DIR + "fastqtl_anc_het_output/"
+    shell:
+        """
+        mkdir -p {params.output_dir}
+        CHR=$(cut -f1 {input.region_input})
+        REGION_START=$(cut -f2 input.region_input)
+        REGION_STOP=$(cut -f3 input.region_input)
+        fastQTL --vcf {input.vcf} --bed {input.pheno} \
+            --include-samples {input.sample_input} \
+            --include-sites {input.SNP_input} \
+            --include-covariates {input.covariates} \
+            --out {output} \
+            --region chr$CHR:$REGION_START-$REGION_STOP
+        """
+
+def merge_anc_het_input(wildcards):
+    checkpoint_output = checkpoints.partition_anc_het.get(**wildcards).output[0]
+    return expand(DATA_DIR + "fastqtl_anc_het_output/{SNP}.txt",
+           SNP=glob_wildcards(os.path.join(checkpoint_output, "{SNP}.txt")).SNP)
+
+rule merge_anc_het_output:
+    input:
+        merge_anc_het_input
+    output:
+        DATA_DIR + "fastqtl_anc_het_output/merged_anc_het.txt"
+    params:
+        dir=DATA_DIR + "fastqtl_anc_het_output"
+    shell:
+        """
+        ls -l {params.dir} | wc -l > {output}
+        """
+
