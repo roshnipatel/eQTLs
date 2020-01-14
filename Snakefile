@@ -4,6 +4,8 @@ include: "scripts/snakemake_variables.py"
 shell.executable("/usr/bin/bash")
 shell.prefix("source ~/.bashrc; ")
 
+# TODO use glob + expand to properly specify input of make_anc_bed and partition_anc_het
+
 rule all:
     input:
         DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt",
@@ -268,7 +270,7 @@ rule intersect_tracts_genes:
     shell:
         """
         conda activate bedtools
-        bedtools intersect -a {input.tracts} -b {input.genes} -wao > {output}
+        sort -k 1,1 -k2,2n {input.tracts} | bedtools intersect -a stdin -b {input.genes} -wao > {output}
         conda deactivate
         """
 
@@ -393,20 +395,24 @@ rule merge_output:
 
 rule partition_anc_het:
     input:
-        vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz",
-        tracts=DATA_DIR + "anc_tracts.bed"
+        chrom_lengths=DATA_DIR + "chrom_lengths.tsv",
+        vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz"
     output:
         samples=directory(DATA_DIR + "fastqtl_anc_het_sample_input"),
         regions=directory(DATA_DIR + "fastqtl_region_input"),
     params:
-        sample_dir=DATA_DIR + "fastqtl_anc_het_sample_input",
-        region_dir=DATA_DIR + "fastqtl_region_input"    
+        sample_dir=DATA_DIR + "fastqtl_anc_het_sample_input/",
+        region_dir=DATA_DIR + "fastqtl_region_input/",
+        tract_dir=DATA_DIR + "bed/"
     shell:
         """
         mkdir -p {params.sample_dir}
         mkdir -p {params.region_dir}
         conda activate py36
-        #TODO: write script
+        zcat {input.vcf} | python partition_anc_het.py --tracts {params.tract_dir} \
+            --chrom_lengths {input.chrom_lenghts} \
+            --sample_out {params.sample_dir} \
+            --region_out {params.region_dir}
         conda deactivate
         """
 
