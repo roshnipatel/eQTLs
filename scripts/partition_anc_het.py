@@ -4,12 +4,17 @@ import pandas as pd
 from combine_tracts import parse_tract_files 
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--hits')
 parser.add_argument('--samples')
 parser.add_argument('--tract_dir')
 parser.add_argument('--chrom_lengths')
 parser.add_argument('--sample_out')
 parser.add_argument('--region_out')
 args = parser.parse_args()
+
+# Load dataframe of significant hits
+hits = pd.read_csv(args.hits, delimiter='\t')
+SNP_list = hits["variant"]
 
 # Load dataframe of samples
 samples = pd.read_csv(args.samples, delimiter='\t')
@@ -23,16 +28,10 @@ tracts_df = pd.merge(tracts_df, samples, how='right')[["NWDID", "Chrom", "Start"
 chrom_lengths = pd.read_csv(args.chrom_lengths, delimiter='\t', names=["Chrom", "Length"])
 
 # Iterate through VCF.
-for line in sys.stdin:
-    if line[:2] == "#":
-        continue
-    if line[0] == "#":
-        continue
-    
-    line = line.split()
-    SNP = line[2]
-    chrom = int(line[0][3:])
-    pos = int(line[1])
+for _, SNP in SNP_list.iteritems(): 
+    SNP_split = SNP.split('_')
+    chrom = int(SNP_split[0][3:])
+    pos = int(SNP_split[1])
 
     # Identify individuals where SNP falls in region of European ancestry on one 
     # haplotype, and a region of African ancestry on the other haplotype. Exclude 

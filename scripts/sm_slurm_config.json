@@ -23,5 +23,9 @@
     "partition_samples":
     {
         "memory"    : 15000
+    },
+    "identify_hits":
+    {
+        "memory"    : 30000
     }
 }

@@ -8,10 +8,7 @@ shell.prefix("source ~/.bashrc; ")
 
 rule all:
     input:
-        DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt",
-        DATA_DIR + "fastqtl_anc_het_output/merged_anc_het.txt",
-        DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
-        DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt"
+        DATA_DIR + "fastqtl_anc_het_output/merged_anc_het.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -312,7 +309,7 @@ rule prep_pheno_file:
 rule ascertain_eQTLs:
     input:
         vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz",
-        pheno=rules.normalize_expression.output.bed,
+        pheno=ancient(rules.normalize_expression.output.bed),
         sample_input=DATA_DIR + "fastqtl_sample_input/ascertainment/{anc}/{gene}.txt",
         gene_input=rules.prep_pheno_file.output,
         covariates=rules.combine_covariates.output,
@@ -341,7 +338,7 @@ rule ascertain_eQTLs:
 rule estimate_eQTLs:
     input:
         vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz",
-        pheno=rules.normalize_expression.output.bed,
+        pheno=ancient(rules.normalize_expression.output.bed),
         sample_input=DATA_DIR + "fastqtl_sample_input/estimation/{anc}/{gene}.txt",
         gene_input=rules.prep_pheno_file.output,
         covariates=rules.combine_covariates.output,
@@ -386,6 +383,20 @@ rule merge_output:
         ls -l {params.dir} | wc -l > {output}
         """
 
+rule identify_hits:
+    input:
+        DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt",
+        DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
+        DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt"
+    output:
+        DATA_DIR + "hits/hits_estimation_Eur.txt",
+        DATA_DIR + "hits/hits_estimation_Afr.txt",
+        DATA_DIR + "hits/hits_ascertainment_Eur.txt"
+    shell:
+        """
+        Rscript scripts/identify_hits.R
+        """
+
 ###################### ANCESTRY-HETEROZYGOUS INDIVIDUALS ######################
 # eQTLs in ancestry-heterozygous individuals  have to be called with a separate 
 # set of rules because I partition individuals by SNPs rather than by genes.
@@ -393,10 +404,10 @@ rule merge_output:
 # groups by SNPs rather than genes, but I already went to the trouble of calling
 # eQTLs in those groups and I don't see any reason to duplicate the work.)
 
-rule partition_anc_het:
+checkpoint partition_anc_het:
     input:
-        chrom_lengths=DATA_DIR + "chrom_lengths.tsv",
-        vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz"
+        hits=DATA_DIR + "hits/hits_ascertainment_Eur.txt",
+        chrom_lengths=DATA_DIR + "chrom_lengths.tsv"
     output:
         samples=directory(DATA_DIR + "fastqtl_anc_het_sample_input"),
         regions=directory(DATA_DIR + "fastqtl_region_input"),
@@ -409,8 +420,9 @@ rule partition_anc_het:
         mkdir -p {params.sample_dir}
         mkdir -p {params.region_dir}
         conda activate py36
-        zcat {input.vcf} | python partition_anc_het.py --tracts {params.tract_dir} \
-            --chrom_lengths {input.chrom_lenghts} \
+        python partition_anc_het.py --hits {input.hits} \
+            --tracts {params.tract_dir} \
+            --chrom_lengths {input.chrom_lengths} \
             --sample_out {params.sample_dir} \
             --region_out {params.region_dir}
         conda deactivate
