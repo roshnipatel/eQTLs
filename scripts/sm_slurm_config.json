@@ -27,5 +27,10 @@
     "identify_hits":
     {
         "memory"    : 30000
+    },
+    "anc_het_eQTLs":
+    {
+        "output"    : "slurm/{rule}.{wildcards.SNP}.out",
+        "error"     : "slurm/{rule}.{wildcards.SNP}.err"
     }
 }

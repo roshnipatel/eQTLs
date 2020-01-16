@@ -407,6 +407,7 @@ rule identify_hits:
 checkpoint partition_anc_het:
     input:
         hits=DATA_DIR + "hits/hits_ascertainment_Eur.txt",
+        samples=rules.select_samples.output,
         chrom_lengths=DATA_DIR + "chrom_lengths.tsv"
     output:
         samples=directory(DATA_DIR + "fastqtl_anc_het_sample_input"),
@@ -420,8 +421,9 @@ checkpoint partition_anc_het:
         mkdir -p {params.sample_dir}
         mkdir -p {params.region_dir}
         conda activate py36
-        python partition_anc_het.py --hits {input.hits} \
-            --tracts {params.tract_dir} \
+        python scripts/partition_anc_het.py --hits {input.hits} \
+            --samples {input.samples} \
+            --tract_dir {params.tract_dir} \
             --chrom_lengths {input.chrom_lengths} \
             --sample_out {params.sample_dir} \
             --region_out {params.region_dir}
@@ -457,14 +459,14 @@ rule anc_het_eQTLs:
         """
         mkdir -p {params.output_dir}
         CHR=$(cut -f1 {input.region_input})
-        REGION_START=$(cut -f2 input.region_input)
-        REGION_STOP=$(cut -f3 input.region_input)
+        REGION_START=$(cut -f2 {input.region_input})
+        REGION_STOP=$(cut -f3 {input.region_input})
         fastQTL --vcf {input.vcf} --bed {input.pheno} \
             --include-samples {input.sample_input} \
             --include-sites {input.SNP_input} \
             --include-covariates {input.covariates} \
             --out {output} \
-            --region chr$CHR:$REGION_START-$REGION_STOP
+            --region $CHR:$REGION_START-$REGION_STOP
         """
 
 def merge_anc_het_input(wildcards):
