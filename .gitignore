@@ -7,3 +7,5 @@ plots/*
 gtex_eqtl_V8.sif
 scripts/src/__pycache__
 scripts/src/__pycache__/*
+results
+results/*
