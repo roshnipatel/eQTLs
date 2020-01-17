@@ -1,4 +1,5 @@
 # Run from home directory
+# IMPORTANT: change file paths
 
 library(tidyverse)
 
@@ -30,11 +31,24 @@ dev.off()
 # Use average of Afr and Eur effect sizes to represent expected effect size in ancestry-heterozygous
 weights = merged %>% transmute(varX = slope_se_anc_het^2 + slope_se^2, varY = .25 * (slope_se_Afr ^2 + slope_se ^2)) %>% mutate(weight = 1/sqrt(varX + varY))
 pdf("plots/slope_dif_avg.pdf")
-ggplot(merged, aes(exp_dif_avg, obs_dif)) + geom_point() + geom_abline(aes(slope=1, intercept=0)) + labs(x="Exp. dif. from Eur. effect size", y="Obs. dif. from Eur. effect size") + geom_smooth(method=lm, color='blue', weight = weights$weight)
+ggplot(merged, aes(exp_dif_avg, obs_dif)) + geom_point() + geom_abline(aes(slope=1, intercept=0)) + labs(x="Exp. dif. from Eur. effect size", y="Obs. dif. from Eur. effect size") + geom_smooth(method=lm, color='blue', aes(weight = weights$weight))
 dev.off()
 
 # Use allele frequency-weighted average of Afr and Eur effect sizes to represent expected effect size in ancestry-heterozygous
-weights = merged %>% transmute(varX = slope_se_anc_het^2 + slope_se^2, varY = (maf_Afr / (maf_Afr + maf))^2 * (slope_se_Afr ^2) + (maf / (maf_Afr + maf))^2 * (slope_se ^2)) %>% mutate(weight = 1/sqrt(varX + varY)
+weights = merged %>% transmute(varX = slope_se_anc_het^2 + slope_se^2, varY = (maf_Afr / (maf_Afr + maf))^2 * (slope_se_Afr ^2) + (maf / (maf_Afr + maf))^2 * (slope_se ^2)) %>% mutate(weight = 1/sqrt(varX + varY))
 pdf("plots/slope_dif_wtavg.pdf")
-ggplot(merged, aes(exp_dif_wtavg, obs_dif)) + geom_point() + geom_abline(aes(slope=1, intercept=0)) + labs(x="Exp. dif. from Eur. effect size", y="Obs. dif. from Eur. effect size") + geom_smooth(method=lm, color='blue', weight=weights$weight)
+ggplot(merged, aes(exp_dif_wtavg, obs_dif)) + geom_point() + geom_abline(aes(slope=1, intercept=0)) + labs(x="Exp. dif. from Eur. effect size", y="Obs. dif. from Eur. effect size") + geom_smooth(method=lm, color='blue', aes(weight=weights$weight))
+dev.off()
+
+# Plot absolute value of observed vs expected deviation from European effect sizes in ancestry-heterozygous individuals
+tib = merged %>% mutate(obs_dif = abs(slope_anc_het - slope), exp_dif_avg = abs(AfrEur_avg - slope), exp_dif_wtavg = abs(AfrEur_wtavg - slope))
+
+# Use average of Afr and Eur effect sizes to represent expected effect size in ancestry-heterozygous
+pdf("plots/slope_abs_dif_avg.pdf")
+ggplot(merged, aes(exp_dif_avg, obs_dif)) + geom_point() + geom_abline(aes(slope=1, intercept=0)) + labs(x="Exp. dif. from Eur. effect size", y="Obs. dif. from Eur. effect size") 
+dev.off()
+
+# Use allele frequency-weighted average of Afr and Eur effect sizes to represent expected effect size in ancestry-heterozygous
+pdf("plots/slope_abs_dif_wtavg.pdf")
+ggplot(merged, aes(exp_dif_wtavg, obs_dif)) + geom_point() + geom_abline(aes(slope=1, intercept=0)) + labs(x="Exp. dif. from Eur. effect size", y="Obs. dif. from Eur. effect size")
 dev.off()
