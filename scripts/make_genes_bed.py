@@ -8,7 +8,7 @@ parser.add_argument('--genes')
 parser.add_argument('--out', help='output')
 args = parser.parse_args()
 
-offset = 1000000
+offset = 100000
 
 genes = pd.read_csv(args.genes, delimiter='\t', names=["Chrom", "Pos_before_TSS", "TSS", "GeneID"])[["GeneID", "TSS"]]
 chrom_lengths = pd.read_csv(args.chrom_lengths, delimiter='\t', names=["Chrom", "Length"])
