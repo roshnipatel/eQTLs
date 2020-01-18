@@ -9,8 +9,7 @@ parser.add_argument('--genes')
 parser.add_argument('--out')
 args = parser.parse_args()
 
-cis_window = 2000000
-overlap = 1800000
+cis_window = 200000
 
 samples = pd.read_csv(args.samples, delimiter='\t')
 genes = pd.read_csv(args.genes, delimiter='\t', names=["Chrom", "Start", "Stop", "GeneID"])["GeneID"]
@@ -24,8 +23,8 @@ tracts["NWDID"] = tracts.apply(lambda row: row.Ind_Hapl[:-2], axis=1)
 tracts = pd.merge(samples, tracts, how='left')[["GeneID", "NWDID", "Overlap"]]
 
 # Identify Afr-Am individuals that have African ancestry overlapping gene's cis
-# window for both chromosomes. Filter for individuals in our sample dataset.
-Afr_tracts = tracts[tracts["Overlap"] > overlap]
+# window for both chromosomes.
+Afr_tracts = tracts[tracts["Overlap"] == cis_window]
 Afr_tracts = Afr_tracts.groupby(["GeneID", "NWDID"]).size()
 Afr_tracts = Afr_tracts[Afr_tracts > 1]
 Afr_tracts = Afr_tracts.reset_index(name='counts')
@@ -36,6 +35,25 @@ gene_counts = {}
 for gene, df in Afr_tracts.groupby("GeneID"):
     gene_counts[gene] = df.shape[0]
     df.to_csv(args.out + "/estimation/Afr/" + gene + ".txt", header=False, index=False, columns=["NWDID"])  
+
+# Identify Afr-Am individuals that have one chromosome with African ancestry
+# overlapping gene's cis window and one chromosome with European ancestry 
+# overlapping gene's cis window.
+Afr_tracts = tracts[tracts["Overlap"] == cis_window]
+Afr_tracts = Afr_tracts.groupby(["GeneID", "NWDID"]).size()
+Afr_tracts = Afr_tracts[Afr_tracts == 1]
+Afr_tracts = Afr_tracts.reset_index(name='counts')
+Eur_tracts = tracts[tracts["Overlap"] == 0]
+Eur_tracts = Eur_tracts.groupby(["GeneID", "NWDID"]).size()
+Eur_tracts = Eur_tracts[Eur_tracts == 1]
+Eur_tracts = Eur_tracts.reset_index(name='counts')
+het_tracts = pd.merge(Afr_tracts, Eur_tracts, how='inner')
+
+# Write ancestry-heterozygous sample IDs to file
+for gene, df in het_tracts.gorupby("GeneID"):
+    df.to_csv(args.out + "/estimation/het/" + gene + ".txt", header=False, index=False, columns=["NWDID"])
+
+tracts, het_tracts, Afr_tracts, Eur_tracts = None, None, None, None
 
 # Partition Eur individuals into ascertainment and estimation set, such that size of 
 # Eur estimation set matches size of Afr-Am estimation set.
