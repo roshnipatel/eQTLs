@@ -9,6 +9,9 @@ shell.prefix("source ~/.bashrc; ")
 
 rule all:
     input:
+        DATA_DIR + "fastqtl_output/merged_estimation_het.txt",
+        DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt",
+        DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
         DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################

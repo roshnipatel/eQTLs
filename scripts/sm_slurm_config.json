@@ -33,12 +33,17 @@
         "output"    : "slurm/{rule}.{wildcards.SNP}.out",
         "error"     : "slurm/{rule}.{wildcards.SNP}.err"
     },
-    "prep_pheno_filei":
+    "prep_pheno_file":
     {
-        "memory"    : 1
+        "memory"    : 100,
+        "time"      : "10:00"
     },
-    "prep_SNP_file":
+    "estimate_eQTLs":
     {
-        "memory"    : 1
+        "time"      : "30:00"
+    },
+    "ascertain_eQTLs":
+    {
+        "time"      : "30:00"
     }
 }

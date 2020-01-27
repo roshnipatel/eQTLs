@@ -8,13 +8,13 @@ import numpy as np
 
 def parse_tract_files(tract_dir):
     files = os.listdir(tract_dir)
-    df = pd.DataFrame(columns=["Chrom", "Start", "Stop", "Anc", "Info"])
+    df = pd.DataFrame(columns=["Chrom", "Start", "Stop", "Info"])
     for f in files:
         ind_ID = f.split('.')[2] # WILL NEED TO CHANGE THIS IF YOU UPDATE THE OUTPUT OF LOCAL ANCESTRY PIPELINE
         hapl = f.split('.')[3] # WILL NEED TO CHANGE THIS IF YOU UPDATE THE OUTPUT OF LOCAL ANCESTRY PIPELINE
         curr = pd.read_csv(tract_dir + f, delimiter='\t', names=["Chrom", "Genomic_Start", "Genomic_Stop", "Anc", "Start", "Stop"])
-        curr["Info"] = ind_ID + "_" + hapl
-        curr = curr.drop(["Genomic_Start", "Genomic_Stop"], axis=1)
+        curr["Info"] = curr.apply(lambda row: ind_ID + "_" + hapl + "_" + row.Anc, axis=1)
+        curr = curr.drop(["Genomic_Start", "Genomic_Stop", "Anc"], axis=1)
         df = pd.merge(df, curr, how='outer')
     return(df)
 
@@ -25,7 +25,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     tracts_df = parse_tract_files(args.tract_dir)
-    tracts_df = tracts_df[tracts_df.Anc == 'YRI']
-    tracts_df = tracts_df.drop(["Anc"], axis=1)
-
     tracts_df.to_csv(args.out, sep='\t', index=False, header=False)

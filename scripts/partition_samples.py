@@ -16,44 +16,49 @@ genes = pd.read_csv(args.genes, delimiter='\t', names=["Chrom", "Start", "Stop",
 
 # Filter tracts data for individuals and genes in our sample dataset.
 tracts = pd.read_csv(args.intersect, delimiter='\t',
-                    names=["Chrom", "AncStart", "AncStop", "Ind_Hapl", "GeneChrom", "GeneStart", "GeneStop", "GeneID", "Overlap"],
-                    dtype={"Chrom": int, "AncStart": int, "AncStop": int, "Ind_Hapl": str, "GeneChrom": str, "GeneStart": int, "GeneStop": int, "GeneID": str, "Overlap": int})
+                    names=["Chrom", "AncStart", "AncStop", "Info", "GeneChrom", "GeneStart", "GeneStop", "GeneID", "Overlap"],
+                    dtype={"Chrom": int, "AncStart": int, "AncStop": int, "Info": str, "GeneChrom": str, "GeneStart": int, "GeneStop": int, "GeneID": str, "Overlap": int})
 tracts = pd.merge(genes, tracts, how='inner')
-tracts["NWDID"] = tracts.apply(lambda row: row.Ind_Hapl[:-2], axis=1)
-tracts = pd.merge(samples, tracts, how='left')[["GeneID", "NWDID", "Overlap"]]
+tracts["NWDID"] = tracts.apply(lambda row: row.Info.split('_')[0], axis=1)
+tracts["Anc"] = tracts.apply(lambda row: row.Info.split('_')[2], axis=1)
+tracts = pd.merge(samples, tracts, how='left')[["GeneID", "NWDID", "Anc", "Overlap"]]
+
+# Identify tracts of African ancestry
+Afr_tracts = tracts[(tracts["Overlap"] == cis_window) & (tracts["Anc"] == 'YRI')]
+Afr_tracts = Afr_tracts.drop(['Anc'], axis=1)
+Afr_tracts = Afr_tracts.groupby(["GeneID", "NWDID"]).size()
+
+# Identify tracts of European ancestry
+Eur_tracts = tracts[(tracts["Overlap"] == cis_window) & (tracts["Anc"] == 'CEU')]
+Eur_tracts = Eur_tracts.drop(["Anc"], axis=1)
+Eur_tracts = Eur_tracts.groupby(["GeneID", "NWDID"]).size()
 
 # Identify Afr-Am individuals that have African ancestry overlapping gene's cis
 # window for both chromosomes.
-Afr_tracts = tracts[tracts["Overlap"] == cis_window]
-Afr_tracts = Afr_tracts.groupby(["GeneID", "NWDID"]).size()
-Afr_tracts = Afr_tracts[Afr_tracts > 1]
-Afr_tracts = Afr_tracts.reset_index(name='counts')
-Afr_tracts = Afr_tracts.drop(['counts'], axis=1)
+hom_Afr_tracts = Afr_tracts[Afr_tracts > 1]
+hom_Afr_tracts = hom_Afr_tracts.reset_index(name='counts')
+hom_Afr_tracts = hom_Afr_tracts.drop(['counts'], axis=1)
 
 # Write Afr-Am sample IDs to file and store sample sizes for each gene
 gene_counts = {}
-for gene, df in Afr_tracts.groupby("GeneID"):
+for gene, df in hom_Afr_tracts.groupby("GeneID"):
     gene_counts[gene] = df.shape[0]
     df.to_csv(args.out + "/estimation/Afr/" + gene + ".txt", header=False, index=False, columns=["NWDID"])  
 
 # Identify Afr-Am individuals that have one chromosome with African ancestry
 # overlapping gene's cis window and one chromosome with European ancestry 
 # overlapping gene's cis window.
-Afr_tracts = tracts[tracts["Overlap"] == cis_window]
-Afr_tracts = Afr_tracts.groupby(["GeneID", "NWDID"]).size()
-Afr_tracts = Afr_tracts[Afr_tracts == 1]
-Afr_tracts = Afr_tracts.reset_index(name='counts')
-Eur_tracts = tracts[tracts["Overlap"] == 0]
-Eur_tracts = Eur_tracts.groupby(["GeneID", "NWDID"]).size()
-Eur_tracts = Eur_tracts[Eur_tracts == 1]
-Eur_tracts = Eur_tracts.reset_index(name='counts')
-het_tracts = pd.merge(Afr_tracts, Eur_tracts, how='inner')
+het_Afr_tracts = Afr_tracts[Afr_tracts == 1]
+het_Afr_tracts = het_Afr_tracts.reset_index(name='counts')
+het_Eur_tracts = Eur_tracts[Eur_tracts == 1]
+het_Eur_tracts = het_Eur_tracts.reset_index(name='counts')
+anc_het_tracts = pd.merge(het_Afr_tracts, het_Eur_tracts, how='inner')
 
 # Write ancestry-heterozygous sample IDs to file
-for gene, df in het_tracts.gorupby("GeneID"):
+for gene, df in anc_het_tracts.groupby("GeneID"):
     df.to_csv(args.out + "/estimation/het/" + gene + ".txt", header=False, index=False, columns=["NWDID"])
 
-tracts, het_tracts, Afr_tracts, Eur_tracts = None, None, None, None
+tracts, het_Afr_tracts, het_Eur_tracts, hom_Afr_tracts, anc_het_tracts, Afr_tracts, Eur_tracts = None, None, None, None, None, None, None
 
 # Partition Eur individuals into ascertainment and estimation set, such that size of 
 # Eur estimation set matches size of Afr-Am estimation set.
