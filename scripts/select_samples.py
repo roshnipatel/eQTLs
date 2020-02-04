@@ -30,8 +30,8 @@ samples_1 = samples[where_dif]
 samples = samples_1.append(samples_5, ignore_index=True)
 
 # Filter for European-Americans and African-Americans only
-indiv_metadata = pd.read_csv(args.ind_data)
-AfrEur = indiv_metadata[(indiv_metadata.race1c == 1) | (indiv_metadata.race1c == 5)]
+indiv_metadata = pd.read_csv(args.ind_data)[["NWDID", "race1c"]].drop_duplicates()
+AfrEur = indiv_metadata[(indiv_metadata["race1c"] == 1) | (indiv_metadata["race1c"] == 3)]
 samples = pd.merge(samples, AfrEur, how='inner', on="NWDID")
 
 # Write TOR ID and NWDID to file
