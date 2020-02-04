@@ -3,6 +3,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('sample_data', help="RNASeq sample metadata file")
+parser.add_argument('ind_data', help="individual metadata file")
 parser.add_argument('genotyped_individuals', help="list of individual IDs in WGS file")
 parser.add_argument('output', help="file with TOR ID and NWDID of selected samples")
 args = parser.parse_args()
@@ -27,6 +28,11 @@ samples_1 = samples[where_dif]
 
 # Merge data from visit 1 and 5
 samples = samples_1.append(samples_5, ignore_index=True)
+
+# Filter for European-Americans and African-Americans only
+indiv_metadata = pd.read_csv(args.ind_data)
+AfrEur = indiv_metadata[(indiv_metadata.race1c == 1) | (indiv_metadata.race1c == 5)]
+samples = pd.merge(samples, AfrEur, how='inner', on="NWDID")
 
 # Write TOR ID and NWDID to file
 samples[['TOR_ID', 'NWDID']].to_csv(args.output, sep='\t', index=False)
