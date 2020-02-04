@@ -43,13 +43,14 @@ rule make_geno_list:
 rule select_samples:
     input:
         sample_data=DATA_DIR + "MESA_TOPMed_RNASeqSamples_11022018.txt",
-        geno_ID=rules.make_geno_list.output
+        geno_ID=rules.make_geno_list.output,
+        ind_data=DATA_DIR + "MESA_sample_info.csv"
     output:
         DATA_DIR + "sample_participant_lookup.txt"
     shell:
         """
         conda activate py36
-        python scripts/select_samples.py {input.sample_data} {input.geno_ID} {output}
+        python scripts/select_samples.py {input.sample_data} {input.ind_data} {input.geno_ID} {output}
         conda deactivate
         """
 
