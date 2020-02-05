@@ -40,17 +40,28 @@ rule make_geno_list:
         zgrep -m 1 "^#CHROM" {input} | sed 's/   /\n/g' > {output}
         """
 
+rule make_rnaseq_list:
+    input:
+        DATA_DIR + "TOPMed_MESA_RNAseq_Pilot_expression_data/TOPMed_MESA_RNAseq_Pilot_RNASeQCv1.1.9.gene_reads.gct.gz"
+    output:
+        DATA_DIR + "rnaseqd_individual_IDs.txt"
+    shell:
+        """
+        zgrep -m 1 "Name" {input} | cut -f 1,2 --complement | tr '\t' '\n' > {output}
+        """
+
 rule select_samples:
     input:
         sample_data=DATA_DIR + "MESA_TOPMed_RNASeqSamples_11022018.txt",
         geno_ID=rules.make_geno_list.output,
+        rnaseq_ID=rules.make_rnaseq_list.output,
         ind_data=DATA_DIR + "MESA_sample_info.csv"
     output:
         DATA_DIR + "sample_participant_lookup.txt"
     shell:
         """
         conda activate py36
-        python scripts/select_samples.py {input.sample_data} {input.ind_data} {input.geno_ID} {output}
+        python scripts/select_samples.py {input.sample_data} {input.ind_data} {input.geno_ID} {input.rnaseq_ID} {output}
         conda deactivate
         """
 

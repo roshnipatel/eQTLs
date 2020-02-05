@@ -5,12 +5,15 @@ parser = argparse.ArgumentParser()
 parser.add_argument('sample_data', help="RNASeq sample metadata file")
 parser.add_argument('ind_data', help="individual metadata file")
 parser.add_argument('genotyped_individuals', help="list of individual IDs in WGS file")
+parser.add_argument('rnaseq_individuals', help="list of individual IDs in RNASeq file")
 parser.add_argument('output', help="file with TOR ID and NWDID of selected samples")
 args = parser.parse_args()
 
 samples = pd.read_csv(args.sample_data, delimiter='\t')
 geno_samples = pd.read_csv(args.genotyped_individuals, names=["NWDID"])
+rnaseq_samples = pd.read_csv(args.rnaseq_individuals, names=["TOR_ID"])
 samples = pd.merge(samples, geno_samples, how='inner')
+samples = pd.merge(samples, rnaseq_samples, how='inner')
 
 # Filter for PBMC RNASeq data
 samples = samples[samples.Specimen == 'PBMC']
