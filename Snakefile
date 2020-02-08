@@ -5,7 +5,6 @@ shell.executable("/usr/bin/bash")
 shell.prefix("source ~/.bashrc; ")
 
 # TODO use glob + expand to properly specify input of make_anc_bed and partition_anc_het
-# TODO move constants, file paths, and scripts into snakemake_variables.py
 
 rule all:
     input:
@@ -18,13 +17,13 @@ rule all:
 
 rule annotate_genes:
     input:
-        DATA_DIR + "gencode.v30.annotation.gtf"
+        DATA_DIR + GENCODE_ANNO 
     output:
         DATA_DIR + "gencode.v30.genes.gtf"
     shell:
         """
         conda activate gene-annotation-env
-        python scripts/collapse_annotation.py {input} {output}
+        python {ANNO_SCRIPT} {input} {output}
         conda deactivate
         """
 
@@ -32,7 +31,7 @@ rule annotate_genes:
 
 rule make_geno_list:
     input:
-        DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz"
+        DATA_DIR + VCF 
     output:
         DATA_DIR + "genotyped_individual_IDs.txt"
     shell:
@@ -42,7 +41,7 @@ rule make_geno_list:
 
 rule make_rnaseq_list:
     input:
-        DATA_DIR + "TOPMed_MESA_RNAseq_Pilot_expression_data/TOPMed_MESA_RNAseq_Pilot_RNASeQCv1.1.9.gene_reads.gct.gz"
+        DATA_DIR + READS 
     output:
         DATA_DIR + "rnaseqd_individual_IDs.txt"
     shell:
@@ -52,16 +51,16 @@ rule make_rnaseq_list:
 
 rule select_samples:
     input:
-        sample_data=DATA_DIR + "MESA_TOPMed_RNASeqSamples_11022018.txt",
+        sample_data=DATA_DIR + RNASEQ_METADATA,
         geno_ID=rules.make_geno_list.output,
         rnaseq_ID=rules.make_rnaseq_list.output,
-        ind_data=DATA_DIR + "MESA_sample_info.csv"
+        ind_data=DATA_DIR + IND_METADATA 
     output:
         DATA_DIR + "sample_participant_lookup.txt"
     shell:
         """
         conda activate py36
-        python scripts/select_samples.py {input.sample_data} {input.ind_data} {input.geno_ID} {input.rnaseq_ID} {output}
+        python {SAMPLE_SELECTION_SCRIPT} {input.sample_data} {input.ind_data} {input.geno_ID} {input.rnaseq_ID} {output}
         conda deactivate
         """
 
@@ -69,7 +68,7 @@ rule select_samples:
 
 rule make_chr_list:
     input:
-        vcf=ancient(DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz")
+        vcf=ancient(DATA_DIR + VCF)
     output:
         chr_list=DATA_DIR + "chr_list.txt"
     shell:
@@ -81,8 +80,8 @@ rule make_chr_list:
 
 rule normalize_expression:
     input:
-        tpm=DATA_DIR + "TOPMed_MESA_RNAseq_Pilot_expression_data/TOPMed_MESA_RNAseq_Pilot_RNASeQCv1.1.9.gene_tpm.gct.gz",
-        counts=DATA_DIR + "TOPMed_MESA_RNAseq_Pilot_expression_data/TOPMed_MESA_RNAseq_Pilot_RNASeQCv1.1.9.gene_reads.gct.gz",
+        tpm=DATA_DIR + TPM,
+        counts=DATA_DIR + READS,
         anno=rules.annotate_genes.output,
         sample_map=rules.select_samples.output,
         chr_list=rules.make_chr_list.output
@@ -94,7 +93,7 @@ rule normalize_expression:
     shell:
         """
         conda activate norm-exp-env
-        scripts/src/eqtl_prepare_expression.py {input.tpm} {input.counts} {input.anno} \
+        {GTEX_NORM_SCRIPT} {input.tpm} {input.counts} {input.anno} \
             {input.sample_map} {input.chr_list} {params.prefix} \
             --tpm_threshold 0.1 \
             --count_threshold 6 \
@@ -127,12 +126,12 @@ rule calculate_PEER:
         num_PEER=30
     shell:
         """
-        Rscript scripts/src/run_PEER.R {input.bed} {params.prefix} {params.num_PEER}
+        Rscript {PEER_SCRIPT} {input.bed} {params.prefix} {params.num_PEER}
         """
 
 rule MAF_filter:
     input:
-        ancient(DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz")
+        ancient(DATA_DIR + VCF)
     output:
         vcf=DATA_DIR + "mesa.maf05.vcf.gz"
     shell:
@@ -213,14 +212,14 @@ rule genotype_PC:
 rule prep_sample_covariates:
     input:
         samples=rules.select_samples.output,
-        indiv_data=DATA_DIR + "MESA_sample_info.csv",
-        sample_data=DATA_DIR + "MESA_TOPMed_RNASeqSamples_11022018.txt"
+        indiv_data=DATA_DIR + IND_METADATA,
+        sample_data=DATA_DIR + RNASEQ_METADATA 
     output:
         DATA_DIR + "mesa.sample_covariates.txt"
     shell:
         """
         conda activate py36
-        python scripts/prep_covariates.py --samples {input.samples} \
+        python {COV_PREP_SCRIPT} --samples {input.samples} \
             --indiv_metadata {input.indiv_data} \
             --sample_metadata {input.sample_data} \
             --out {output}
@@ -239,7 +238,7 @@ rule combine_covariates:
     shell:
         """
         conda activate py36
-        scripts/src/combine_covariates.py {input.PEER} {params.prefix} \
+        {COV_COMB_SCRIPT} {input.PEER} {params.prefix} \
             {input.PC} {input.addl_cov}
         conda deactivate
         """
@@ -254,7 +253,7 @@ rule make_anc_bed:
     shell:
         """
         conda activate py36
-        python scripts/combine_tracts.py --tract_dir {params.dir} --out {output}
+        python {TRACT_SCRIPT} --tract_dir {params.dir} --out {output}
         conda deactivate
         """
 
@@ -262,13 +261,13 @@ rule make_genes_bed:
     input:
         genes=rules.make_gene_list.output,
         anno=rules.annotate_genes.output,
-        chrom_lengths=DATA_DIR + "chrom_lengths.tsv"
+        chrom_lengths=DATA_DIR + CHR_LEN 
     output:
         DATA_DIR + "genes.bed"
     shell:
         """
         conda activate py36
-        python scripts/make_genes_bed.py --genes {input.genes} \
+        python {GENE_BED_SCRIPT} --genes {input.genes} \
             --anno {input.anno} --chrom_lengths {input.chrom_lengths} \
             --out {output}
         conda deactivate
@@ -276,8 +275,8 @@ rule make_genes_bed:
 
 rule intersect_tracts_genes:
     input:
-        tracts=DATA_DIR + "anc_tracts.bed",
-        genes=DATA_DIR + "genes.bed"
+        tracts=rules.make_anc_bed.output,
+        genes=rules.make_genes_bed.output
     output:
         DATA_DIR + "intersection_anc_genes.bed"
     shell:
@@ -291,7 +290,7 @@ checkpoint partition_samples:
     input:
         intersect=rules.intersect_tracts_genes.output,
         samples=rules.select_samples.output,
-        metadata=DATA_DIR + "MESA_sample_info.csv",
+        metadata=DATA_DIR + IND_METADATA,
         genes=rules.make_gene_list.output
     output:
         directory(DATA_DIR + "fastqtl_sample_input")
@@ -304,7 +303,7 @@ checkpoint partition_samples:
         mkdir -p {params.output_dir}/estimation/het
         mkdir -p {params.output_dir}/estimation/Eur
         conda activate py36
-        python scripts/partition_samples.py --intersect {input.intersect} \
+        python {PARTITION_SCRIPT} --intersect {input.intersect} \
             --samples {input.samples} --metadata {input.metadata} \
             --genes {input.genes} --out {params.output_dir}
         conda deactivate
@@ -325,7 +324,7 @@ rule prep_pheno_file:
 
 rule ascertain_eQTLs:
     input:
-        vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz",
+        vcf=DATA_DIR + VCF,
         pheno=ancient(rules.normalize_expression.output.bed),
         sample_input=DATA_DIR + "fastqtl_sample_input/ascertainment/{anc}/{gene}.txt",
         gene_input=rules.prep_pheno_file.output,
@@ -334,7 +333,7 @@ rule ascertain_eQTLs:
     output:
         DATA_DIR + "fastqtl_output/ascertainment/{anc}/{gene}.txt"
     singularity:
-        "gtex_eqtl_V8.sif"
+        FASTQTL_DOCKER 
     params:
         output_dir=DATA_DIR + "fastqtl_output/"
     shell:
@@ -348,14 +347,14 @@ rule ascertain_eQTLs:
            --include-phenotypes {input.gene_input} \
 	       --include-covariates {input.covariates} \
            --out {output} \
-           --window 100000 \
+           --window {WINDOW} \
            --region chr$CHR:$REGION_START-$REGION_STOP \
-           --permute 1000 10000
+           --permute {PERM}
         """
 
 rule estimate_eQTLs:
     input:
-        vcf=DATA_DIR + "genotype_freeze.6a.pass_only.phased.mesa_1331samples.maf01.biallelic.vcf.gz",
+        vcf=DATA_DIR + VCF,
         pheno=ancient(rules.normalize_expression.output.bed),
         sample_input=DATA_DIR + "fastqtl_sample_input/estimation/{anc}/{gene}.txt",
         gene_input=rules.prep_pheno_file.output,
@@ -364,7 +363,7 @@ rule estimate_eQTLs:
     output:
         DATA_DIR + "fastqtl_output/estimation/{anc}/{gene}.txt"
     singularity:
-        "gtex_eqtl_V8.sif"
+        FASTQTL_DOCKER 
     params:
         output_dir=DATA_DIR + "fastqtl_output/"
     shell:
@@ -378,7 +377,7 @@ rule estimate_eQTLs:
            --include-phenotypes {input.gene_input} \
 	       --include-covariates {input.covariates} \
            --out {output} \
-           --window 100000 \
+           --window {WINDOW} \
            --region chr$CHR:$REGION_START-$REGION_STOP
         """
 
@@ -400,20 +399,4 @@ rule merge_output:
     shell:
         """
         cat {params.dir} > {output}
-        """
-
-rule identify_hits:
-    input:
-        DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt",
-        DATA_DIR + "fastqtl_output/merged_estimation_het.txt",
-        DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
-        DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt"
-    output:
-        DATA_DIR + "hits/hits_estimation_Eur.txt",
-        DATA_DIR + "hits/hits_estimation_Afr.txt",
-        DATA_DIR + "hits/hits_estimation_het.txt",
-        DATA_DIR + "hits/hits_ascertainment_Eur.txt"
-    shell:
-        """
-        Rscript scripts/identify_hits.R
         """
