@@ -5,13 +5,11 @@ shell.executable("/usr/bin/bash")
 shell.prefix("source ~/.bashrc; ")
 
 # TODO use glob + expand to properly specify input of make_anc_bed and partition_anc_het
+# TODO add rules for identify hits + calculate expression std dev
 
 rule all:
     input:
-        DATA_DIR + "fastqtl_output/merged_estimation_het.txt",
-        DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt",
-        DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
-        DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt"
+        DATA_DIR + "sims/scaling_1_0/merged_results.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -399,4 +397,36 @@ rule merge_output:
     shell:
         """
         cat {params.dir} > {output}
+        """
+
+################################# SIMULATIONS ################################
+
+rule perform_simulation:
+    input:
+        sd=DATA_DIR + "expression_std_dev.txt",
+        afr="results/v2/hits/hits_estimation_Afr.txt",
+        eur="results/v2/hits/hits_estimation_Eur.txt" 
+    output:
+        DATA_DIR + "sims/scaling_{afr}_{eur}/sim_{sim}.txt"
+    shell:
+        """
+        mkdir -p DATA_DIR/sims
+        module reset
+        module load R
+        Rscript --vanilla {SIM_SCRIPT} --sd_file {input.sd} \
+		--afr_effect_file {input.afr} \
+		--eur_effect_file {input.eur} \
+                --afr_scaling {wildcards.afr} \
+                --eur_scaling {wildcards.eur} \
+		--out {output}
+        """
+
+rule merge_sims:
+    input:
+        expand(DATA_DIR + "sims/scaling_{{afr}}_{{eur}}/sim_{sim}.txt", sim=range(SIM_ITER))
+    output:
+        DATA_DIR + "sims/scaling_{afr}_{eur}/merged_results.txt"
+    shell:
+        """
+        cat {input} > {output}
         """

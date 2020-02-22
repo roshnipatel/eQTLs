@@ -45,5 +45,15 @@
     "ascertain_eQTLs":
     {
         "time"      : "30:00"
+    },
+    "perform_simulation":
+    {
+        "time"      : "5:00",
+        "memory"    : 200
+    },
+    "merge_sims":
+    {
+        "time"      : "30:00",
+        "memory"    : 200
     }
 }

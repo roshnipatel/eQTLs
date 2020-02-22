@@ -41,7 +41,7 @@ COV_COMB_SCRIPT = "scripts/src/combine_covariates.py"
 TRACT_SCRIPT = "scripts/combine_tracts.py"
 GENE_BED_SCRIPT = "scripts/make_genes_bed.py"
 PARTITION_SCRIPT = "scripts/partition_samples.py"
-
+SIM_SCRIPT = "scripts/normalization_sims.R"
 
 
 ### Misc. Utilities ###
@@ -58,3 +58,6 @@ WINDOW = 100000 # 100 kb
 
 # Permutation range for fastQTL permutation pass
 PERM = "1000 1000"
+
+# Number of iterations for normalization simulations
+SIM_ITER = 1000
