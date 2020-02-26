@@ -32,9 +32,10 @@ IND_METADATA = "MESA_sample_info.csv"
 
 
 ### Scripts ###
+
 ANNO_SCRIPT = "scripts/collapse_annotation.py"
 SAMPLE_SELECTION_SCRIPT = "scripts/select_samples.py"
-GTEX_NORM_SCRIPT = "scripts/src/eqtl_prepare_expression.py"
+NORM_SCRIPT = "scripts/normalize_expression.py"
 PEER_SCRIPT = "scripts/src/run_PEER.R"
 COV_PREP_SCRIPT = "scripts/prep_covariates.py"
 COV_COMB_SCRIPT = "scripts/src/combine_covariates.py"
@@ -42,6 +43,9 @@ TRACT_SCRIPT = "scripts/combine_tracts.py"
 GENE_BED_SCRIPT = "scripts/make_genes_bed.py"
 PARTITION_SCRIPT = "scripts/partition_samples.py"
 SIM_SCRIPT = "scripts/normalization_sims.R"
+EQTL_SCRIPT = "scripts/call_eqtls.py"
+HITS_SCRIPT = "scripts/identify_hits.R"
+
 
 
 ### Misc. Utilities ###

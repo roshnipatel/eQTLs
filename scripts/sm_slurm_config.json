@@ -5,7 +5,7 @@
         "nodes"     : 1,
         "tasks"     : 1,
         "memory"    : 1000,
-        "time"      : "2:00:00",
+        "time"      : "1:00:00",
         "name"      : "{rule}",
         "output"    : "slurm/{rule}.out",
         "error"     : "slurm/{rule}.err"
@@ -26,7 +26,7 @@
     },
     "identify_hits":
     {
-        "memory"    : 30000
+        "memory"    : 2000
     },
     "anc_het_eQTLs":
     {

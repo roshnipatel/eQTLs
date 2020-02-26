@@ -5,11 +5,13 @@ shell.executable("/usr/bin/bash")
 shell.prefix("source ~/.bashrc; ")
 
 # TODO use glob + expand to properly specify input of make_anc_bed and partition_anc_het
-# TODO add rules for identify hits + calculate expression std dev
 
 rule all:
     input:
-        DATA_DIR + "sims/scaling_1_0/merged_results.txt"
+        DATA_DIR + "hits/hits_ascertainment_Eur.txt",
+        DATA_DIR + "hits/hits_estimation_Eur.txt",
+        DATA_DIR + "hits/hits_estimation_het.txt",
+        DATA_DIR + "hits/hits_estimation_Afr.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -37,7 +39,7 @@ rule make_geno_list:
         zgrep -m 1 "^#CHROM" {input} | sed 's/   /\n/g' > {output}
         """
 
-rule make_rnaseq_list:
+rule make_exp_list:
     input:
         DATA_DIR + READS 
     output:
@@ -51,14 +53,14 @@ rule select_samples:
     input:
         sample_data=DATA_DIR + RNASEQ_METADATA,
         geno_ID=rules.make_geno_list.output,
-        rnaseq_ID=rules.make_rnaseq_list.output,
+        exp_ID=rules.make_exp_list.output,
         ind_data=DATA_DIR + IND_METADATA 
     output:
         DATA_DIR + "sample_participant_lookup.txt"
     shell:
         """
         conda activate py36
-        python {SAMPLE_SELECTION_SCRIPT} {input.sample_data} {input.ind_data} {input.geno_ID} {input.rnaseq_ID} {output}
+        python {SAMPLE_SELECTION_SCRIPT} {input.sample_data} {input.ind_data} {input.geno_ID} {input.exp_ID} {output}
         conda deactivate
         """
 
@@ -95,8 +97,7 @@ rule normalize_expression:
             {input.sample_map} {input.chr_list} {params.prefix} \
             --tpm_threshold 0.1 \
             --count_threshold 6 \
-            --sample_frac_threshold 0.2 \
-            --normalization_method tmm
+            --sample_frac_threshold 0.2 
         conda deactivate
         """
 
@@ -112,21 +113,6 @@ rule make_gene_list:
 
 ############################# GENERATE COVARIATES #############################
 
-rule calculate_PEER:
-    input:
-        bed=ancient(rules.normalize_expression.output.bed)
-    output:
-        res=DATA_DIR + "mesa.PEER_residuals.txt",
-        alpha=DATA_DIR + "mesa.PEER_alpha.txt",
-        cov=DATA_DIR + "mesa.PEER_covariates.txt"
-    params:
-        prefix=DATA_DIR + "mesa",
-        num_PEER=30
-    shell:
-        """
-        Rscript {PEER_SCRIPT} {input.bed} {params.prefix} {params.num_PEER}
-        """
-
 rule MAF_filter:
     input:
         ancient(DATA_DIR + VCF)
@@ -135,31 +121,17 @@ rule MAF_filter:
     shell:
         """
         conda activate bcftools-env
-        bcftools view -i 'MAF[0] > 0.05' -Ob {input} | \
+        bcftools view -i 'MAF[0] > 0.05' -Ou {input} | \
             bcftools view --genotype ^miss --phased -Oz -o {output.vcf}
-        conda deactivate
-        """
-
-rule indiv_filter:
-    input:
-        vcf=rules.MAF_filter.output.vcf,
-        filter=rules.select_samples.output
-    output:
-        DATA_DIR + "mesa.maf05.filtered.vcf.gz"
-    shell:
-        """
-        conda activate bcftools-env
-        bcftools view -Oz -s $(tail -n +2 {input.filter} | cut -f2 | tr '\n' ',' | sed 's/,$//') \
-            -o {output} {input.vcf}
         conda deactivate
         """
 
 rule find_indep_snps:
     input:
-        vcf=rules.indiv_filter.output
+        vcf=rules.MAF_filter.output
     output:
-        keep=DATA_DIR + "mesa.maf05.filtered.prune.in",
-        exclude=temp(expand(DATA_DIR + "mesa.maf05.filtered.{ext}", ext=["log", "nosex", "prune.out"]))
+        keep=DATA_DIR + "mesa.maf05.prune.in",
+        exclude=temp(expand(DATA_DIR + "mesa.maf05.{ext}", ext=["log", "nosex", "prune.out"]))
     params:
         prefix=lambda wildcards, output: output.keep[:-9]
     shell:
@@ -172,43 +144,21 @@ rule find_indep_snps:
 
 rule prune:
     input:
-        vcf=rules.indiv_filter.output,
+        vcf=rules.MAF_filter.output,
         snps=rules.find_indep_snps.output.keep
     output:
-        bed=DATA_DIR + "mesa.maf05.filtered.prune05.bed",
-        bim=temp(DATA_DIR + "mesa.maf05.filtered.prune05.bim"),
-        fam=temp(DATA_DIR + "mesa.maf05.filtered.prune05.fam")
-    params:
-        prefix=lambda wildcards, output: output.bed[:-4]
+        DATA_DIR + "mesa.maf05.prune.vcf.gz"
     shell:
         """
-        conda activate plink-env
-        plink --vcf {input.vcf} --make-bed --extract {input.snps} --out {params.prefix}
+        conda activate bcftools-env
+        bcftools view -i 'ID=@{input.snps}' -Oz -o {output} {input.vcf}
         conda deactivate
         """
 
-rule genotype_PC:
+rule prep_covariates:
     input:
-        rules.prune.output.bed,
-        rules.prune.output.bim,
-        rules.prune.output.fam
-    output:
-        raw=DATA_DIR + "mesa.maf05.filtered.prune05.pc.eigenvec",
-        exclude=temp(expand(DATA_DIR + "mesa.maf05.filtered.prune05.pc.{ext}", ext=["eigenval", "log"])),
-        trimmed=DATA_DIR + "mesa.maf05.filtered.prune05.pc.txt"
-    params:
-        out_prefix=lambda wildcards, output: output.trimmed[:-4],
-        in_prefix=lambda wildcards, output: output.trimmed[:-7]
-    shell:
-        """
-        conda activate plink-env
-        plink --bfile {params.in_prefix} --pca --out {params.out_prefix}
-        cut -f 2-22 -d$' ' {output.raw} > {output.trimmed}
-        conda deactivate
-        """
-
-rule prep_sample_covariates:
-    input:
+        vcf=rules.prune.output,
+        exp=rules.normalize_expression.output.bed,
         samples=rules.select_samples.output,
         indiv_data=DATA_DIR + IND_METADATA,
         sample_data=DATA_DIR + RNASEQ_METADATA 
@@ -221,23 +171,6 @@ rule prep_sample_covariates:
             --indiv_metadata {input.indiv_data} \
             --sample_metadata {input.sample_data} \
             --out {output}
-        conda deactivate
-        """
-
-rule combine_covariates:
-    input:
-        PEER=rules.calculate_PEER.output.cov,
-        PC=rules.genotype_PC.output.trimmed,
-        addl_cov=rules.prep_sample_covariates.output
-    output:
-        DATA_DIR + "mesa.combined_covariates.txt"
-    params:
-        prefix=DATA_DIR + "mesa",
-    shell:
-        """
-        conda activate py36
-        {COV_COMB_SCRIPT} {input.PEER} {params.prefix} \
-            {input.PC} {input.addl_cov}
         conda deactivate
         """
 
@@ -307,79 +240,51 @@ checkpoint partition_samples:
         conda deactivate
         """
 
-################################# RUN FASTQTL #################################
+################################## CALL EQTLS ##################################
 
-rule prep_pheno_file:
+rule subset_geno:
+    input:
+        vcf=DATA_DIR + VCF,
+        gene_TSS_map=rules.make_gene_list.output
     output:
-        temp(DATA_DIR + "fastqtl_gene_input/{gene}.txt")
+        temp(DATA_DIR + "fastqtl_geno_input/{gene}.vcf")
     params:
-        output_dir=DATA_DIR + "fastqtl_gene_input/"
+        output_dir=DATA_DIR + "fastqtl_geno_input/"
     shell:
         """
         mkdir -p {params.output_dir}
-        echo "{wildcards.gene}" > {output}
+        CHR=$(grep {wildcards.gene} {input.gene_TSS_map} | cut -f 1)
+        REGION_START=$(grep {wildcards.gene} {input.gene_TSS_map} | cut -f 2)
+        REGION_STOP=$(grep {wildcards.gene} {input.gene_TSS_map} | cut -f 3)
+        
+        conda activate bcftools-env
+        bcftools view -r chr$CHR:$REGION_START-$REGION_STOP -Ov -o {output} {input.vcf}
+        conda deactivate
         """
 
-rule ascertain_eQTLs:
+rule call_eQTLs:
     input:
-        vcf=DATA_DIR + VCF,
-        pheno=ancient(rules.normalize_expression.output.bed),
+        geno_input=rules.subset_geno.output,
+        pheno_input=rules.normalize_expression.output.bed,
         sample_input=DATA_DIR + "fastqtl_sample_input/ascertainment/{anc}/{gene}.txt",
-        gene_input=rules.prep_pheno_file.output,
-        covariates=rules.combine_covariates.output,
-        gene_TSS_map=rules.make_gene_list.output
+        covariates=rules.combine_covariates.output
     output:
-        DATA_DIR + "fastqtl_output/ascertainment/{anc}/{gene}.txt"
-    singularity:
-        FASTQTL_DOCKER 
+        DATA_DIR + "fastqtl_output/{type}/{anc}/{gene}.txt"
     params:
-        output_dir=DATA_DIR + "fastqtl_output/"
+        output_dir=DATA_DIR + "fastqtl_output/{type}/{anc}"
     shell:
         """
-        mkdir -p {params.output_dir}/ascertainment/{wildcards.anc}
-        CHR=$(grep {wildcards.gene} {input.gene_TSS_map} | cut -f 1)
-        REGION_START=$(grep {wildcards.gene} {input.gene_TSS_map} | cut -f 2)
-        REGION_STOP=$(grep {wildcards.gene} {input.gene_TSS_map} | cut -f 3)
-        fastQTL --vcf {input.vcf} --bed {input.pheno} \
-	       --include-samples {input.sample_input} \
-           --include-phenotypes {input.gene_input} \
-	       --include-covariates {input.covariates} \
-           --out {output} \
-           --window {WINDOW} \
-           --region chr$CHR:$REGION_START-$REGION_STOP \
-           --permute {PERM}
-        """
+        mkdir -p {params.output_dir}
 
-rule estimate_eQTLs:
-    input:
-        vcf=DATA_DIR + VCF,
-        pheno=ancient(rules.normalize_expression.output.bed),
-        sample_input=DATA_DIR + "fastqtl_sample_input/estimation/{anc}/{gene}.txt",
-        gene_input=rules.prep_pheno_file.output,
-        covariates=rules.combine_covariates.output,
-        gene_TSS_map=rules.make_gene_list.output
-    output:
-        DATA_DIR + "fastqtl_output/estimation/{anc}/{gene}.txt"
-    singularity:
-        FASTQTL_DOCKER 
-    params:
-        output_dir=DATA_DIR + "fastqtl_output/"
-    shell:
+        conda activate pystats
+        cat <(zcat {input.pheno_input} | head -n 1) <(zgrep -m 1 {wildcards.gene} {input.pheno_input}) \
+            | python {EQTL_SCRIPT}
+            --genotypes {input.geno_input} \
+            --samples {input.sample_input} \
+            --covariates {input.covariates} \
+            --out {output}
+        conda deactivate
         """
-        mkdir -p {params.output_dir}/estimation/{wildcards.anc}
-        CHR=$(grep {wildcards.gene} {input.gene_TSS_map} | cut -f 1)
-        REGION_START=$(grep {wildcards.gene} {input.gene_TSS_map} | cut -f 2)
-        REGION_STOP=$(grep {wildcards.gene} {input.gene_TSS_map} | cut -f 3)
-        fastQTL --vcf {input.vcf} --bed {input.pheno} \
-	       --include-samples {input.sample_input} \
-           --include-phenotypes {input.gene_input} \
-	       --include-covariates {input.covariates} \
-           --out {output} \
-           --window {WINDOW} \
-           --region chr$CHR:$REGION_START-$REGION_STOP
-        """
-
-##################################### RUN #####################################
 
 def merge_input(wildcards):
     checkpoint_output = checkpoints.partition_samples.get(**wildcards).output[0]
@@ -393,10 +298,33 @@ rule merge_output:
     output:
         DATA_DIR + "fastqtl_output/merged_{type}_{anc}.txt"
     params:
-        dir=DATA_DIR + "fastqtl_output/{type}/{anc}"
+        dir=DATA_DIR + "fastqtl_output/{type}/{anc}/*"
     shell:
         """
         cat {params.dir} > {output}
+        """
+
+rule identify_hits:
+    input:
+        asc=DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt", 
+        eur=DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
+        het=DATA_DIR + "fastqtl_output/merged_estimation_het.txt",
+        afr=DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt"
+    output:
+        DATA_DIR + "hits/hits_ascertainment_Eur.txt",
+        DATA_DIR + "hits/hits_estimation_Eur.txt",
+        DATA_DIR + "hits/hits_estimation_het.txt",
+        DATA_DIR + "hits/hits_estimation_Afr.txt"
+    params:
+        DATA_DIR + "hits/"
+    shell:
+        """
+        mkdir -p {params}
+        module reset
+        module load R
+        Rscript {HITS_SCRIPT} --asc {input.asc} --eur {input.eur} \
+            --het {input.het} --afr {input.afr} --out {params}
+        conda deactivate
         """
 
 ################################# SIMULATIONS ################################
