@@ -2,12 +2,15 @@ import pandas as pd
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('sample_data', help="RNASeq sample metadata file")
-parser.add_argument('ind_data', help="individual metadata file")
-parser.add_argument('genotyped_individuals', help="list of individual IDs in WGS file")
-parser.add_argument('rnaseq_individuals', help="list of individual IDs in RNASeq file")
-parser.add_argument('output', help="file with TOR ID and NWDID of selected samples")
+parser.add_argument('--sample_data', help="RNASeq sample metadata file")
+parser.add_argument('--ind_data', help="individual metadata file")
+parser.add_argument('--ancestry', help="short string matching ancestry of individuals to filter for; must match hardcoded anc_map")
+parser.add_argument('--genotyped_individuals', help="list of individual IDs in WGS file")
+parser.add_argument('--rnaseq_individuals', help="list of individual IDs in RNASeq file")
+parser.add_argument('--output', help="file with TOR ID and NWDID of selected samples")
 args = parser.parse_args()
+
+anc_map = {"Afr": 3, "Eur": 1}
 
 samples = pd.read_csv(args.sample_data, delimiter='\t')
 geno_samples = pd.read_csv(args.genotyped_individuals, names=["NWDID"])
@@ -32,9 +35,9 @@ samples_1 = samples[where_dif]
 # Merge data from visit 1 and 5
 samples = samples_1.append(samples_5, ignore_index=True)
 
-# Filter for European-Americans and African-Americans only
+# Filter for correct ancestry
 indiv_metadata = pd.read_csv(args.ind_data)[["NWDID", "race1c"]].drop_duplicates()
-AfrEur = indiv_metadata[(indiv_metadata["race1c"] == 1) | (indiv_metadata["race1c"] == 3)]
+AfrEur = indiv_metadata[(indiv_metadata["race1c"] == anc_map[args.ancestry])]
 samples = pd.merge(samples, AfrEur, how='inner', on="NWDID")
 
 # Write TOR ID and NWDID to file
