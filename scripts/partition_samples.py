@@ -3,15 +3,16 @@ import pandas as pd
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--intersect')
-parser.add_argument('--samples')
-parser.add_argument('--metadata')
+parser.add_argument('--afr_samples')
+parser.add_argument('--eur_samples')
 parser.add_argument('--genes')
 parser.add_argument('--out')
 args = parser.parse_args()
 
 cis_window = 200000
 
-samples = pd.read_csv(args.samples, delimiter='\t')
+afr_samples = pd.read_csv(args.afr_samples, delimiter='\t')
+eur_samples = pd.read_csv(args.eur_samples, delimiter='\t')
 genes = pd.read_csv(args.genes, delimiter='\t', names=["Chrom", "Start", "Stop", "GeneID"])["GeneID"]
 
 # Filter tracts data for individuals and genes in our sample dataset.
@@ -21,7 +22,7 @@ tracts = pd.read_csv(args.intersect, delimiter='\t',
 tracts = pd.merge(genes, tracts, how='inner')
 tracts["NWDID"] = tracts.apply(lambda row: row.Info.split('_')[0], axis=1)
 tracts["Anc"] = tracts.apply(lambda row: row.Info.split('_')[2], axis=1)
-tracts = pd.merge(samples, tracts, how='left')[["GeneID", "NWDID", "Anc", "Overlap"]]
+tracts = pd.merge(afr_samples, tracts, how='left')[["GeneID", "NWDID", "Anc", "Overlap"]]
 
 # Identify tracts of African ancestry
 Afr_tracts = tracts[(tracts["Overlap"] == cis_window) & (tracts["Anc"] == 'YRI')]
@@ -62,13 +63,13 @@ tracts, het_Afr_tracts, het_Eur_tracts, hom_Afr_tracts, anc_het_tracts, Afr_trac
 
 # Partition Eur individuals into ascertainment and estimation set, such that size of 
 # Eur estimation set matches size of Afr-Am estimation set.
-metadata = pd.read_csv(args.metadata)[["NWDID", "race1c"]]
-metadata = metadata.drop_duplicates()
-merged = pd.merge(samples, metadata, how='left')
-Eur_IDs = merged[merged.race1c == 1]["NWDID"]
+Eur_IDs = eur_samples["NWDID"]
 
 for gene, count in gene_counts.items():
-    est = Eur_IDs.sample(n = count)
-    asc = Eur_IDs.drop(est.index)
+    val = Eur_IDs.sample(n = 50)
+    rest = Eur_IDs.drop(val.index)
+    est = rest.sample(n = count)
+    asc = rest.drop(est.index)
+    val.to_csv(args.out + "/validation/Eur" + gene + ".txt", header=False, index=False)
     est.to_csv(args.out + "/estimation/Eur/" + gene + ".txt", header=False, index=False)
     asc.to_csv(args.out + "/ascertainment/Eur/" + gene + ".txt", header=False, index=False)
