@@ -10,8 +10,6 @@ import argparse
 import os
 import feather
 
-# TODO add code to regress out expression PCs from matrix (both within + across ancestry groups)
-
 def gtf_to_bed(annotation_gtf, feature='gene', exclude_chrs=[]):
     """
     Parse genes from GTF, create placeholder DataFrame for BED output
@@ -106,7 +104,7 @@ def read_gct(gct_file, sample_ids=None, dtype=None):
     return df
 
 
-def prepare_expression(counts_df, tpm_df, vcf_lookup_s, sample_frac_threshold=0.2, count_threshold=6, tpm_threshold=0.1):
+def prepare_expression(counts_df, tpm_df, vcf_lookup_s, sample_frac_threshold=0.2, count_threshold=6, tpm_threshold=0.1, outlier_threshold=4.5):
     """
     Genes are thresholded based on the following expression rules:
       TPM >= tpm_threshold in >= sample_frac_threshold*samples
@@ -121,18 +119,31 @@ def prepare_expression(counts_df, tpm_df, vcf_lookup_s, sample_frac_threshold=0.
     counts_df = counts_df[ix]
     ns = tpm_df.shape[1]
 
+    # normalize read counts at each gene by the total reads sampled per individual
+    norm_df = counts_df.divide(counts_df.sum(axis=0))
+
     # expression thresholds
     mask = (
         (np.sum(tpm_df>=tpm_threshold,axis=1)>=sample_frac_threshold*ns) &
         (np.sum(counts_df>=count_threshold,axis=1)>=sample_frac_threshold*ns)
     ).values
-
-    # apply normalization
-    norm_df = counts_df.divide(counts_df.sum(axis=0))
     norm_df = norm_df[mask]
-    log_df = norm_df.transform(np.log2) 
 
-    return log_df
+    # log2 transform resulting expression measurements. convert 0s to nans.
+    cols, idx = norm_df.columns, norm_df.index
+    log_array = np.ma.log2(np.array(norm_df)).filled(np.nan)
+    norm_df = pd.DataFrame(log_array, columns=cols, index=idx)
+
+    # remove outliers
+    gene_mean = norm_df.mean(axis=1)
+    gene_sd = norm_df.std(axis=1)
+    mask = (
+        (norm_df.le(outlier_threshold * gene_sd + gene_mean, axis=0)) & 
+        (norm_df.ge(-outlier_threshold * gene_sd + gene_mean, axis=0))
+    )
+    norm_df = norm_df[mask]
+
+    return norm_df
 
 
 
