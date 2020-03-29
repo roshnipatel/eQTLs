@@ -70,6 +70,6 @@ for gene, count in gene_counts.items():
     rest = Eur_IDs.drop(val.index)
     est = rest.sample(n = count)
     asc = rest.drop(est.index)
-    val.to_csv(args.out + "/validation/Eur" + gene + ".txt", header=False, index=False)
+    val.to_csv(args.out + "/validation/Eur/" + gene + ".txt", header=False, index=False)
     est.to_csv(args.out + "/estimation/Eur/" + gene + ".txt", header=False, index=False)
     asc.to_csv(args.out + "/ascertainment/Eur/" + gene + ".txt", header=False, index=False)
