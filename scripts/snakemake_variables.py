@@ -44,8 +44,8 @@ GENE_BED_SCRIPT = "scripts/make_genes_bed.py"
 PARTITION_SCRIPT = "scripts/partition_samples.py"
 EQTL_SCRIPT = "scripts/call_eqtls.py"
 HITS_SCRIPT = "scripts/identify_hits.R"
-MERGE_SCRIPT = "scripts/merge_gene_list.py"
-
+MERGE_GENES = "scripts/merge_gene_list.py"
+MERGE_RES = "scripts/merge_eqtl_calls.py"
 
 
 ### Misc. Utilities ###
