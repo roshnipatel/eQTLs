@@ -26,16 +26,7 @@
     },
     "MAF_filter":
     {
-        "memory"    : 1000,
-        "time"      : "2:00:00"
-    },
-    "find_indep_snps":
-    {
-        "time"      : "10:00"
-    },
-    "prune":
-    {
-        "time"      : "10:00"
+        "time"      : "20:00"
     },
     "prep_covariates":
     {
@@ -61,7 +52,12 @@
     },
     "call_eQTLs":
     {
-        "time"      : "1:00:00"
+        "time"      : "10:00"
+    },
+    "merge_output":
+    {
+        "time"      : "4:00:00",
+        "memory"    : 3000
     },
     "identify_hits":
     {
