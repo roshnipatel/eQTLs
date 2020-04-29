@@ -21,9 +21,6 @@ opt = parse_args(opt_parser)
 scaling_Afr = opt$afr_scaling
 scaling_Eur = opt$eur_scaling
 
-# Define probability that variant is causal
-prob_causal = .7
-
 # Read files into tibbles
 sd = read_tsv(opt$sd_file) %>% drop_na(Afr_sd, het_sd, Eur_sd)
 Afr_effects = read_tsv(opt$afr_effect_file)
