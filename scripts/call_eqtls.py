@@ -20,7 +20,7 @@ def parse_expression(exp_path, ind):
     # Parse expression data input and filter for desired sample IDs
     exp = pd.read_csv(exp_path, sep='\t')
     exp = exp[ind]
-    exp = exp - exp.mean(axis=1).iloc[0] # Mean-center expression data
+    # exp = exp - exp.mean(axis=1).iloc[0] # Mean-center expression data
     return(exp)
 
 def parse_covariates(cov_file_path, ind):
@@ -28,7 +28,7 @@ def parse_covariates(cov_file_path, ind):
     cov = cov[ind]
     return(cov)
 
-def parse_genotypes(vcf_path, ind=None):
+def parse_genotypes(vcf_path, ind=None, concat=True):
     # Parse genotype data input and filter for desired sample IDs
     geno_list = []
     with gzip.open(vcf_path, 'rt') as geno_file:
@@ -42,8 +42,11 @@ def parse_genotypes(vcf_path, ind=None):
                 line = line.split()
                 ID = line[2]
                 vcf_geno = line[9:]
-                int_geno = [int(gt[0]) + int(gt[2]) for gt in vcf_geno] # Convert genotype strings in VCF file into integer allele counts
-                geno_list.append([ID] + int_geno)
+                if concat:
+                    int_geno = [int(gt[0]) + int(gt[2]) for gt in vcf_geno] # Convert genotype strings in VCF file into integer allele counts
+                    geno_list.append([ID] + int_geno)
+                else:
+                    geno_list.append([ID] + vcf_geno)
     geno = pd.DataFrame(geno_list, columns=header).set_index(header[0])
     if ind is not None:
         geno = geno[ind]
