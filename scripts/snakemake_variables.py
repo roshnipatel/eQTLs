@@ -46,6 +46,11 @@ EQTL_SCRIPT = "scripts/call_eqtls.py"
 HITS_SCRIPT = "scripts/identify_hits.R"
 MERGE_GENES = "scripts/merge_gene_list.py"
 MERGE_RES = "scripts/merge_eqtl_calls.py"
+GRP_PREP_SCRIPT = "scripts/prep_grp_exp_PC.py"
+SIM_SCRIPT = "scripts/simulations.R"
+MERGE_SIMS = "scripts/merge_sims.R"
+SD_SCRIPT = "scripts/std_dev_comparison.R"
+
 
 
 ### Misc. Utilities ###
@@ -63,3 +68,5 @@ WINDOW = 100000 # 100 kb
 # Permutation range for fastQTL permutation pass
 PERM = "1000 1000"
 
+# Number of iterations for normalization simulations
+SIM_ITER = 1000

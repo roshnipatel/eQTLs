@@ -1,37 +1,39 @@
 library(tidyverse)
 library(matrixStats)
+library(optparse)
 
-metadata = read_csv("data/MESA_sample_info.csv")
-samples = read_tsv("data/sample_participant_lookup.txt")
-hits = read_tsv("results/v2/hits/hits_ascertainment_Eur.txt")
-reads = read_tsv("data/mesa_TMM.expression.bed.gz")
+# Parse arguments
+option_list = list(make_option("--eur", type="character", default=NULL,
+                        help="European expression file name", metavar="character"),
+                   make_option("--afr", type="character", default=NULL,
+                        help="African expression file name", metavar="character"),
+                   make_option("--samp_prefix", type="character", default=NULL,
+                        help="filepath prefix for sample input files", metavar="character"),
+                   make_option("--out", type="character", default=NULL,
+                        help="output filepath", metavar="character"))
+opt_parser = OptionParser(option_list=option_list)
+opt = parse_args(opt_parser)
 
-# Filter for AA and EA samples by race information in individual metadata
-AA = samples %>% left_join(metadata %>% select(NWDID, race1c) %>% unique) %>% filter(race1c == 3)
-EA = samples %>% left_join(metadata %>% select(NWDID, race1c) %>% unique) %>% filter(race1c == 1)
-# EA = EA %>% sample_n(AA %>% nrow) # Optionally downsample EA dataset until it has the same sample size as AA
-AAreads = reads %>% select(AA$NWDID)
-EAreads = reads %>% select(EA$NWDID)
+afr = read_tsv(opt$afr)
+eur = read_tsv(opt$eur)
+all_ind = afr %>% inner_join(eur)
 
 # Within each population, compute standard deviation in gene reads for all genes
-AAsd = AAreads %>% transmute(AA_sd = rowSds(as.matrix(.[AAreads %>% colnames])))
-EAsd = EAreads %>% transmute(EA_sd = rowSds(as.matrix(.[EAreads %>% colnames])))
-
-# Normalize expression SD measurement relative to AA expression SD
-genes = bind_cols(reads %>% select('#chr', start, end, gene_id), AAsd, EAsd)
-genes = genes %>% mutate(AA_norm = 1, EA_norm = EA_sd/AA_sd)
+afr_sd = afr %>% select(-'#chr', -start, -end, -gene_id) %>% transmute(sd = rowSds(as.matrix(.), na.rm=TRUE)) %>% bind_cols(afr %>% select(gene_id))
+eur_sd = eur %>% select(-'#chr', -start, -end, -gene_id) %>% transmute(sd = rowSds(as.matrix(.), na.rm=TRUE)) %>% bind_cols(eur %>% select(gene_id))
+exp_sd = afr_sd %>% inner_join(eur_sd, by="gene_id", suffix=c("_afr", "_eur"))
 
 # Define function to find expression SD in pop, a subset of AA individuals, for gene
 pop_subset_sd = function(pop, gene) {
-    gene_file = paste("data/fastqtl_sample_input/estimation/", pop, "/", gene, ".txt", sep="")
+    gene_file = paste0(args$samp_prefix, pop, "/", gene, ".txt")
     if (!file.exists(gene_file)) {
         return(NA)
     }
     ind = read_tsv(gene_file, col_names=c("NWDID"))
-    ind = ind %>% inner_join(samples)
-    sd = reads %>% filter(gene_id == gene) %>% select(ind$NWDID) %>% sd
-    return(sd)
+    row_sd = all_ind %>% filter(gene_id == gene) %>% select(ind$NWDID) %>% sd(na.rm=TRUE)
+    return(row_sd)
 }
 pop_subset_sd_vect = Vectorize(pop_subset_sd)
-genes = genes %>% mutate(Afr_sd = pop_subset_sd_vect("Afr", gene_id), het_sd = pop_subset_sd_vect("het", gene_id), Eur_sd = pop_subset_sd_vect("Eur", gene_id))
-genes %>% write.table("data/expression_std_dev.txt", row.names=FALSE, sep='\t')
+
+exp_sd = exp_sd %>% mutate(Afr_sd = pop_subset_sd_vect("Afr", gene_id), het_sd = pop_subset_sd_vect("het", gene_id), Eur_sd = pop_subset_sd_vect("Eur", gene_id))
+exp_sd %>% write.table(args$out, row.names=FALSE, sep='\t')

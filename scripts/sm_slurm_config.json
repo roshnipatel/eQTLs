@@ -28,6 +28,11 @@
     {
         "time"      : "20:00"
     },
+    "generate_group_PC":
+    {
+        "memory"    : 15000,
+        "time"      : "10:00"
+    },
     "prep_covariates":
     {
         "memory"    : 15000,
@@ -62,5 +67,10 @@
     "identify_hits":
     {
         "memory"    : 2000
+    },
+    "merge_sims":
+    {   
+        "time"      : "30:00",
+        "memory"    : 200
     }
 }
