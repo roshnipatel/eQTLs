@@ -5,6 +5,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--intersect')
 parser.add_argument('--afr_samples')
 parser.add_argument('--eur_samples')
+parser.add_argument('--afr_validation_run', action='store_true')
 parser.add_argument('--genes')
 parser.add_argument('--out')
 args = parser.parse_args()
@@ -39,6 +40,10 @@ Eur_tracts = Eur_tracts.groupby(["GeneID", "NWDID"]).size()
 hom_Afr_tracts = Afr_tracts[Afr_tracts > 1]
 hom_Afr_tracts = hom_Afr_tracts.reset_index(name='counts')
 hom_Afr_tracts = hom_Afr_tracts.drop(['counts'], axis=1)
+
+if args.afr_validation_run:
+    for gene, df in hom_Afr_tracts.groupby("GeneID"):
+        df.sample(n = 50).to_csv(args.out + "/validation/Afr/" + gene + ".txt", header=False, index=False, columns=["NWDID"])
 
 # Write Afr-Am sample IDs to file and store sample sizes for each gene
 gene_counts = {}

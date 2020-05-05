@@ -15,6 +15,8 @@ option_list = list(make_option("--asc", type="character", default=NULL,
                         help="merged het estimation file name", metavar="character"),
                    make_option("--val", type="character", default=NULL,
                         help="merged eur validation file name", metavar="character"),
+                   make_option("--val_afr", type="character", default=NULL,
+                        help="merged afr validation file name", metavar="character"),
                    make_option("--out", type="character", default=NULL,
                         help="output file name prefix", metavar="character"))
 opt_parser = OptionParser(option_list=option_list)
@@ -56,3 +58,7 @@ het %>% write.table(paste0(opt$out, "hits_estimation_het.txt"), sep='\t', row.na
 val = read_tsv(opt$val)
 val = val %>% inner_join(hits %>% select(Gene, ID))
 val %>% write.table(paste0(opt$out, "hits_validation_Eur.txt"), sep='\t', row.names=FALSE)
+
+val_afr = read_tsv(opt$val_afr)
+val_afr = val_afr %>% inner_join(hits %>% select(Gene, ID))
+val_afr %>% write.table(paste0(opt$out, "hits_validation_Afr.txt"), sep='\t', row.names=FALSE)

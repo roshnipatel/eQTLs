@@ -8,28 +8,18 @@ shell.prefix("source ~/.bashrc; ")
  
 rule all:
     input:
-#         DATA_DIR + "fastqtl_output/ascertainment/Eur/ENSG00000000419.12.txt"
         DATA_DIR + "fastqtl_output/randsamp_merged_ascertainment_Eur.txt",
         DATA_DIR + "fastqtl_output/randsamp_merged_estimation_Eur.txt",
         DATA_DIR + "fastqtl_output/randsamp_merged_validation_Eur.txt",
+        DATA_DIR + "fastqtl_output/randsamp_merged_validation_Afr.txt",
         DATA_DIR + "fastqtl_output/randsamp_merged_estimation_het.txt",
         DATA_DIR + "fastqtl_output/randsamp_merged_estimation_Afr.txt",
         DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt",
         DATA_DIR + "fastqtl_output/hits_estimation_Eur.txt",
         DATA_DIR + "fastqtl_output/hits_validation_Eur.txt",
+        DATA_DIR + "fastqtl_output/hits_validation_Afr.txt",
         DATA_DIR + "fastqtl_output/hits_estimation_het.txt",
         DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt"
-#         DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt",
-#         DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt",
-#         DATA_DIR + "fastqtl_output/merged_estimation_het.txt",
-#         DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
-#         DATA_DIR + "fastqtl_output/merged_validation_Eur.txt"
-#         DATA_DIR + "fastqtl_output/ascertainment/Eur/ENSG00000000419.12.txt"
-#         DATA_DIR + "hits/hits_estimation_Eur.txt",
-#         DATA_DIR + "hits/hits_estimation_het.txt",
-#         DATA_DIR + "hits/hits_estimation_Afr.txt"
-#         expand(DATA_DIR + "mesa.residual_expression.{anc}.txt", anc=["Afr", "Eur"])
-#         DATA_DIR + "fastqtl_output/estimation/het/ENSG00000000419.12.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -331,15 +321,54 @@ checkpoint partition_samples:
         mkdir -p {params.output_dir}/estimation/het
         mkdir -p {params.output_dir}/estimation/Eur
         mkdir -p {params.output_dir}/validation/Eur
+        mkdir -p {params.output_dir}/validation/Afr
         conda activate py36
         python {PARTITION_SCRIPT} \
             --intersect {input.intersect} \
             --afr_samples {input.afr_samples} \
             --eur_samples {input.eur_samples} \
             --genes {input.genes} \
+            --afr_validation_run \
             --out {params.output_dir}
         conda deactivate
         """
+
+# checkpoint add_validation_samp:
+#     input:
+#         intersect=rules.intersect_tracts_genes.output,
+# 	afr_samples=expand(rules.select_samples.output, anc=["Afr"]),
+# 	eur_samples=expand(rules.select_samples.output, anc=["Eur"]),
+#         genes=rules.make_gene_list.output
+#     output:
+#         directory(DATA_DIR + "secondary_validation")
+#     params:
+#         output_dir=DATA_DIR + "secondary_validation"
+#     shell:
+#         """
+#         mkdir -p {params.output_dir}/validation/Afr
+#         conda activate py36
+#         python {PARTITION_SCRIPT} \
+#             --intersect {input.intersect} \
+#             --afr_samples {input.afr_samples} \
+#             --eur_samples {input.eur_samples} \
+#             --genes {input.genes} \
+#             --afr_validation_run \
+#             --out {params.output_dir}
+#         conda deactivate
+#         """
+# 
+# rule move_validation_files:
+#     input:
+#         DATA_DIR + "secondary_validation/validation/Afr/{gene}.txt"
+#     output:
+#         DATA_DIR + "fastqtl_sample_input/validation/Afr/{gene}.txt"
+#     params:
+#         output_dir=DATA_DIR + "fastqtl_sample_input/validation/Afr"
+#     shell:
+#         """
+#         mkdir -p {params.output_dir}
+#         cp {input} {output}
+#         """
 
 ################################## CALL EQTLS ##################################
 
@@ -365,7 +394,7 @@ rule subset_geno:
 
 rule subset_pheno:
     input:
-        bed=DATA_DIR + "mesa.residual_expression.{anc}.bed.gz"
+        bed=DATA_DIR + "mesa.{anc}.expression.bed.gz"
     output:
         DATA_DIR + "fastqtl_pheno_input/{anc}/{gene}.txt"
     params:
@@ -404,6 +433,7 @@ rule call_eQTLs:
 
 def merge_input(wildcards):
     checkpoint_output = checkpoints.partition_samples.get(**wildcards).output[0]
+    # checkpoint_output = checkpoints.add_validation_samp.get(**wildcards).output[0]
     return expand(DATA_DIR + "fastqtl_output/{type}/{anc}/{gene}.txt",
                   type=wildcards.type, anc=wildcards.anc,
                   gene=glob_wildcards(os.path.join(checkpoint_output, wildcards.type, 
@@ -423,27 +453,19 @@ rule merge_output:
         conda deactivate 
         """
 
-rule sample_merged:
-    input:
-        DATA_DIR + "fastqtl_output/merged_{type}_{anc}.txt"
-    output:
-        DATA_DIR + "fastqtl_output/randsamp_merged_{type}_{anc}.txt"
-    shell:
-        """
-        cat <(head -n 1 {input}) <(tail -n +2 {input} | shuf -n 100000) > {output}
-        """
-
 rule identify_hits:
     input:
         asc=DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt", 
         eur=DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
         val=DATA_DIR + "fastqtl_output/merged_validation_Eur.txt",
+        val_afr=DATA_DIR + "fastqtl_output/merged_validation_Afr.txt",
         het=DATA_DIR + "fastqtl_output/merged_estimation_het.txt",
         afr=DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt"
     output:
         DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt",
         DATA_DIR + "fastqtl_output/hits_estimation_Eur.txt",
         DATA_DIR + "fastqtl_output/hits_validation_Eur.txt",
+        DATA_DIR + "fastqtl_output/hits_validation_Afr.txt",
         DATA_DIR + "fastqtl_output/hits_estimation_het.txt",
         DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt"
     params:
@@ -454,11 +476,22 @@ rule identify_hits:
         module reset
         module load R
         Rscript --vanilla {HITS_SCRIPT} --asc {input.asc} --eur {input.eur} \
-            --het {input.het} --afr {input.afr} --val {input.val} --out {params}
+            --het {input.het} --afr {input.afr} --val {input.val} --val_afr {input.val_afr} \
+            --out {params}
         conda deactivate
         """
 
-############################## SIMULATIONS #################################
+############################## MISC. ANALYSES #################################
+
+rule sample_merged:
+    input:
+        DATA_DIR + "fastqtl_output/merged_{type}_{anc}.txt"
+    output:
+        DATA_DIR + "fastqtl_output/randsamp_merged_{type}_{anc}.txt"
+    shell:
+        """
+        cat <(head -n 1 {input}) <(tail -n +2 {input} | shuf -n 100000) > {output}
+        """
 
 rule analyze_expression_sd:
     input:
@@ -476,39 +509,3 @@ rule analyze_expression_sd:
                 --samp_prefix {params.samp} --out {output}
         """
 
-rule perform_simulation:
-    input:
-        sd=rules.analyze_expression_sd.output,
-        afr=DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt",
-        eur=DATA_DIR + "fastqtl_output/hits_estimation_Eur.txt"
-    params:
-        out_dir=DATA_DIR + "sims"
-    output:
-        DATA_DIR + "sims/scaling_{afr}_{eur}/sim_{sim}.txt"
-    shell:
-        """
-        mkdir -p {params.out_dir}
-        module reset
-        module load R
-        Rscript --vanilla {SIM_SCRIPT} --sd_file {input.sd} \
-                --afr_effect_file {input.afr} \
-                --eur_effect_file {input.eur} \
-                --afr_scaling {wildcards.afr} \
-                --eur_scaling {wildcards.eur} \
-                --out {output}
-        """
-
-rule merge_sims:
-    input:
-        expand(DATA_DIR + "sims/scaling_{{afr}}_{{eur}}/sim_{num}.txt", num=range(SIM_ITER))
-    output:
-        DATA_DIR + "sims/scaling_{afr}_{eur}/merged_results.txt"
-    params:
-        dir=DATA_DIR + "sims/scaling_{afr}_{eur}/"
-    shell:
-        """
-        module reset
-        module load R
-        Rscript --vanilla {MERGE_SIMS} --dir {params.dir} \
-                --out {output}
-        """
