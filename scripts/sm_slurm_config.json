@@ -72,10 +72,5 @@
     "identify_hits":
     {
         "memory"    : 2000
-    },
-    "merge_sims":
-    {   
-        "time"      : "30:00",
-        "memory"    : 200
     }
 }

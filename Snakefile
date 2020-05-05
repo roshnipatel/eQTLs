@@ -20,17 +20,6 @@ rule all:
         DATA_DIR + "fastqtl_output/hits_validation_Afr.txt",
         DATA_DIR + "fastqtl_output/hits_estimation_het.txt",
         DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt"
-#         DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt",
-#         DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt",
-#         DATA_DIR + "fastqtl_output/merged_estimation_het.txt",
-#         DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
-#         DATA_DIR + "fastqtl_output/merged_validation_Eur.txt"
-#         DATA_DIR + "fastqtl_output/ascertainment/Eur/ENSG00000000419.12.txt"
-#         DATA_DIR + "hits/hits_estimation_Eur.txt",
-#         DATA_DIR + "hits/hits_estimation_het.txt",
-#         DATA_DIR + "hits/hits_estimation_Afr.txt"
-#         expand(DATA_DIR + "mesa.residual_expression.{anc}.txt", anc=["Afr", "Eur"])
-#         DATA_DIR + "fastqtl_output/estimation/het/ENSG00000000419.12.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -464,16 +453,6 @@ rule merge_output:
         conda deactivate 
         """
 
-rule sample_merged:
-    input:
-        DATA_DIR + "fastqtl_output/merged_{type}_{anc}.txt"
-    output:
-        DATA_DIR + "fastqtl_output/randsamp_merged_{type}_{anc}.txt"
-    shell:
-        """
-        cat <(head -n 1 {input}) <(tail -n +2 {input} | shuf -n 100000) > {output}
-        """
-
 rule identify_hits:
     input:
         asc=DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt", 
@@ -502,7 +481,17 @@ rule identify_hits:
         conda deactivate
         """
 
-############################## SIMULATIONS #################################
+############################## MISC. ANALYSES #################################
+
+rule sample_merged:
+    input:
+        DATA_DIR + "fastqtl_output/merged_{type}_{anc}.txt"
+    output:
+        DATA_DIR + "fastqtl_output/randsamp_merged_{type}_{anc}.txt"
+    shell:
+        """
+        cat <(head -n 1 {input}) <(tail -n +2 {input} | shuf -n 100000) > {output}
+        """
 
 rule analyze_expression_sd:
     input:
@@ -520,39 +509,3 @@ rule analyze_expression_sd:
                 --samp_prefix {params.samp} --out {output}
         """
 
-rule perform_simulation:
-    input:
-        sd=rules.analyze_expression_sd.output,
-        afr=DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt",
-        eur=DATA_DIR + "fastqtl_output/hits_estimation_Eur.txt"
-    params:
-        out_dir=DATA_DIR + "sims"
-    output:
-        DATA_DIR + "sims/scaling_{afr}_{eur}/sim_{sim}.txt"
-    shell:
-        """
-        mkdir -p {params.out_dir}
-        module reset
-        module load R
-        Rscript --vanilla {SIM_SCRIPT} --sd_file {input.sd} \
-                --afr_effect_file {input.afr} \
-                --eur_effect_file {input.eur} \
-                --afr_scaling {wildcards.afr} \
-                --eur_scaling {wildcards.eur} \
-                --out {output}
-        """
-
-rule merge_sims:
-    input:
-        expand(DATA_DIR + "sims/scaling_{{afr}}_{{eur}}/sim_{num}.txt", num=range(SIM_ITER))
-    output:
-        DATA_DIR + "sims/scaling_{afr}_{eur}/merged_results.txt"
-    params:
-        dir=DATA_DIR + "sims/scaling_{afr}_{eur}/"
-    shell:
-        """
-        module reset
-        module load R
-        Rscript --vanilla {MERGE_SIMS} --dir {params.dir} \
-                --out {output}
-        """
