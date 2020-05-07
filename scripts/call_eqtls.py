@@ -20,7 +20,7 @@ def parse_expression(exp_path, ind):
     # Parse expression data input and filter for desired sample IDs
     exp = pd.read_csv(exp_path, sep='\t')
     exp = exp[ind]
-    # exp = exp - exp.mean(axis=1).iloc[0] # Mean-center expression data
+    exp = exp - exp.mean(axis=1).iloc[0] # Mean-center expression data
     return(exp)
 
 def parse_covariates(cov_file_path, ind):

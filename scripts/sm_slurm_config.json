@@ -46,6 +46,11 @@
     {
         "memory"    : 1000
     },
+    "add_validation_samp":
+    {
+        "memory"    : 15000,
+        "time"      : "2:00:00"
+    },
     "partition_samples":
     {
         "memory"    : 15000,
@@ -67,10 +72,5 @@
     "identify_hits":
     {
         "memory"    : 2000
-    },
-    "merge_sims":
-    {   
-        "time"      : "30:00",
-        "memory"    : 200
     }
 }
