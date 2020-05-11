@@ -8,18 +8,19 @@ shell.prefix("source ~/.bashrc; ")
  
 rule all:
     input:
-        DATA_DIR + "fastqtl_output/randsamp_merged_ascertainment_Eur.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_estimation_Eur.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_validation_Eur.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_validation_Afr.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_estimation_het.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_estimation_Afr.txt",
-        DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_estimation_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_validation_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_validation_Afr.txt",
-        DATA_DIR + "fastqtl_output/hits_estimation_het.txt",
-        DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt"
+        # DATA_DIR + "fastqtl_output/randsamp_merged_ascertainment_Eur.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_estimation_Eur.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_validation_Eur.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_validation_Afr.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_estimation_het.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_estimation_Afr.txt",
+        # DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt",
+        # DATA_DIR + "fastqtl_output/hits_estimation_Eur.txt",
+        # DATA_DIR + "fastqtl_output/hits_validation_Eur.txt",
+        # DATA_DIR + "fastqtl_output/hits_validation_Afr.txt",
+        # DATA_DIR + "fastqtl_output/hits_estimation_het.txt",
+        # DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt"
+        DATA_DIR + "likelihood_model.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -478,6 +479,37 @@ rule identify_hits:
         Rscript --vanilla {HITS_SCRIPT} --asc {input.asc} --eur {input.eur} \
             --het {input.het} --afr {input.afr} --val {input.val} --val_afr {input.val_afr} \
             --out {params}
+        conda deactivate
+        """
+
+############################# LIKELIHOOD MODEL ################################
+
+def hit_genes():
+    afr_df = pd.read_csv("results/3_fold_change/cov_none/hits/hits_estimation_Afr.txt", sep='\t')
+    eur_df = pd.read_csv("results/3_fold_change/cov_none/hits/hits_estimation_Eur.txt", sep='\t')
+    afr_genes = set(afr_df['Gene'])
+    eur_genes = set(eur_df['Gene'])
+    genes = list(afr_genes.intersection(eur_genes))
+    return(genes)
+
+rule model:
+    input:
+        afr_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Afr"),
+        afr_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Afr"),
+        eur_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Eur"),
+        eur_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Eur"),
+        tracts=rules.make_anc_bed.output,
+        afr_hits="results/3_fold_change/cov_none/hits/hits_estimation_Afr.txt",
+        eur_hits="results/3_fold_change/cov_none/hits/hits_estimation_Eur.txt"
+    output:
+        DATA_DIR + "likelihood_model.txt"
+    shell:
+        """
+        conda activate pystats
+        python scripts/likelihood_model.py --tracts {input.tracts} \
+            --afr_hits {input.afr_hits} \
+            --eur_hits {input.eur_hits} \
+            --out {output}
         conda deactivate
         """
 
