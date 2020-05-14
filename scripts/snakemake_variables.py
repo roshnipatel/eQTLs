@@ -65,3 +65,6 @@ WINDOW = 100000 # 100 kb
 
 # Permutation range for fastQTL permutation pass
 PERM = "1000 1000"
+
+# Number of iterations for likelihood EM
+MAX_ITER = 300

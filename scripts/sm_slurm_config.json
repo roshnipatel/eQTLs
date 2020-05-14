@@ -73,9 +73,18 @@
     {
         "memory"    : 2000
     },
-    "model":
+    "merge_data":
     {
-        "time"      : "4:00:00",
-        "memory"    : 3000
+        "time"      : "2:00:00",
+        "memory"    : 2500
+    },
+    "optimize":
+    {
+        "memory"    : 800
+    },
+    "likelihood":
+    {
+        "memory"    : 1300,
+        "time"      : "3:00:00"
     }
 }
