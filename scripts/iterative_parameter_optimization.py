@@ -12,7 +12,7 @@ def document_params(delta_file, betas_file, delta, betas):
         f.write('\n')
 
 def optimize_delta(df):
-    b = np.array(df["Expression"] - df["Genotype_Afr"] * df["Curr_Effect_Afr"] - df["Genotype_Eur"] * df["Curr_Effect_Eur"])
+    b = np.array(df["Expression"] - df["Genotype_Afr"] * df["Curr_Effect_Afr"] - df["Genotype_Eur"] * df["Curr_Effect_Eur"] - df["Curr_Int_Afr"] * df["Race_AA"] - df["Curr_Int_Eur"] * (1 - df["Race_AA"]))
     A = np.array((df["Curr_Effect_Afr"] - df["Curr_Effect_Eur"]) * df["Genotype_Eur"] * df["Race_AA"])
     P = np.matrix(np.dot(A, A))
     q = np.matrix(np.dot(A, -b))
@@ -27,17 +27,23 @@ def optimize_delta(df):
 def optimize_betas(group):
     X_Afr = group["Genotype_Afr"] + group["Curr_Delta"] * group["Genotype_Eur"] * group["Race_AA"]
     X_Eur = group["Genotype_Eur"] - group["Curr_Delta"] * group["Genotype_Eur"] * group["Race_AA"]
+    Int_Afr = group["Race_AA"]
+    Int_Eur = 1 - group["Race_AA"]
     Y = group["Expression"]
-    df = pd.DataFrame({"Y": Y, "X_Afr": X_Afr, "X_Eur": X_Eur})
-    result = sm.OLS(df["Y"], df[["X_Afr", "X_Eur"]]).fit().params
+    # df = pd.DataFrame({"Y": Y, "X_Afr": X_Afr, "X_Eur": X_Eur})
+    # result = sm.OLS(df["Y"], df[["X_Afr", "X_Eur"]]).fit().params
+    df = pd.DataFrame({"Y": Y, "X_Afr": X_Afr, "X_Eur": X_Eur, "Int_Afr": Int_Afr, "Int_Eur": Int_Eur})
+    result = sm.OLS(df["Y"], df[["X_Afr", "X_Eur", "Int_Afr", "Int_Eur"]]).fit().params
     return(result)
 
 def update_params(df, betas=None, delta=None):
     if delta is not None:
         df["Curr_Delta"] = delta
     elif betas is not None:
-        betas = betas.rename(columns={"X_Afr": "Curr_Effect_Afr", "X_Eur": "Curr_Effect_Eur"})
-        df = df.drop(columns=["Curr_Effect_Afr", "Curr_Effect_Eur"])
+        # betas = betas.rename(columns={"X_Afr": "Curr_Effect_Afr", "X_Eur": "Curr_Effect_Eur"})
+        # df = df.drop(columns=["Curr_Effect_Afr", "Curr_Effect_Eur"])
+        betas = betas.rename(columns={"X_Afr": "Curr_Effect_Afr", "X_Eur": "Curr_Effect_Eur", "Int_Afr": "Curr_Int_Afr", "Int_Eur": "Curr_Int_Eur"})
+        df = df.drop(columns=["Curr_Effect_Afr", "Curr_Effect_Eur", "Curr_Int_Afr", "Curr_Int_Eur"])
         df = pd.merge(df, betas, left_on="Gene", right_index=True)
     return(df)
 
@@ -53,7 +59,8 @@ if __name__ == '__main__':
     merged_data = pd.read_csv(args.merged, sep='\t')
     
     merged_data[["Curr_Effect_Afr", "Curr_Effect_Eur"]] = merged_data[["effect_Afr", "effect_Eur"]]
-    prev_delta = -1
+    merged_data[["Curr_Int_Afr", "Curr_Int_Eur"]] = merged_data[["intercept_Afr", "intercept_Eur"]]
+    prev_delta = -1 # Ensures we do 1+ iterations
     for i in range(int(args.max_iter)):
         curr_delta = optimize_delta(merged_data)
         if (abs(curr_delta - prev_delta) < .0001):

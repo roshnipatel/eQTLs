@@ -20,7 +20,11 @@ rule all:
         # DATA_DIR + "fastqtl_output/hits_validation_Afr.txt",
         # DATA_DIR + "fastqtl_output/hits_estimation_het.txt",
         # DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt"
-        DATA_DIR + "likelihood_model.txt"
+        # DATA_DIR + "likelihood_model.txt"
+        expand(DATA_DIR + "MLE/{param}_{idx}.txt", param=["delta", "betas"], idx=[str(i).zfill(3) for i in range(1)]),
+        DATA_DIR + "MLE/likelihood_vs_delta_000.txt"
+        # DATA_DIR + "MLE/delta_n5_swapped.txt",
+        # DATA_DIR + "MLE/betas_n5_swapped.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -492,7 +496,7 @@ def hit_genes():
     genes = list(afr_genes.intersection(eur_genes))
     return(genes)
 
-rule model:
+rule merge_data:
     input:
         afr_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Afr"),
         afr_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Afr"),
@@ -502,13 +506,76 @@ rule model:
         afr_hits="results/3_fold_change/cov_none/hits/hits_estimation_Afr.txt",
         eur_hits="results/3_fold_change/cov_none/hits/hits_estimation_Eur.txt"
     output:
-        DATA_DIR + "likelihood_model.txt"
+        merged=DATA_DIR + "MLE/merged_data.txt"
+    params:
+        out_dir=DATA_DIR + "MLE/"
+    shell:
+        """
+        mkdir -p {params.out_dir}
+        conda activate pystats
+        python scripts/merge_eQTL_data.py --tracts {input.tracts} \
+            --afr_hits {input.afr_hits} \
+            --eur_hits {input.eur_hits} \
+            --out {output.merged}
+        conda deactivate
+        """
+
+rule merge_swapped_data:
+    input:
+        afr_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Afr"),
+        afr_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Afr"),
+        eur_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Eur"),
+        eur_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Eur"),
+        tracts=rules.make_anc_bed.output,
+        afr_hits="results/3_fold_change/cov_none/hits/hits_estimation_Afr.txt",
+        eur_hits="results/3_fold_change/cov_none/hits/hits_estimation_Eur.txt"
+    output:
+        merged=DATA_DIR + "MLE/merged_data_n5_swapped.txt"
+    params:
+        out_dir=DATA_DIR + "MLE/"
+    shell:
+        """
+        mkdir -p {params.out_dir}
+        conda activate pystats
+        python scripts/merge_eQTL_data.py --tracts {input.tracts} \
+            --afr_hits {input.afr_hits} \
+            --eur_hits {input.eur_hits} \
+            --n_genes 5 \
+            --swap_ref_alt \
+            --out {output.merged}
+        conda deactivate
+        """
+
+rule optimize:
+    input:
+        rules.merge_data.output.merged
+        # DATA_DIR + "MLE/merged_data_n5_swapped.txt"
+    output:
+        delta=DATA_DIR + "MLE/delta_{idx}.txt",
+        betas=DATA_DIR + "MLE/betas_{idx}.txt"
+        # delta=DATA_DIR + "MLE/delta_n5_swapped.txt",
+        # betas=DATA_DIR + "MLE/betas_n5_swapped.txt"
     shell:
         """
         conda activate pystats
-        python scripts/likelihood_model.py --tracts {input.tracts} \
-            --afr_hits {input.afr_hits} \
-            --eur_hits {input.eur_hits} \
+        python scripts/iterative_parameter_optimization.py --merged {input} \
+            --max_iter {MAX_ITER} \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} 
+        conda deactivate
+        """
+
+rule likelihood:
+    input:
+        merged=rules.merge_data.output.merged,
+        betas=DATA_DIR + "MLE/betas_{idx}.txt"
+    output:
+        DATA_DIR + "MLE/likelihood_vs_delta_{idx}.txt"
+    shell:
+        """
+        conda activate pystats
+        python scripts/compute_likelihood.py --merged {input.merged} \
+            --betas {input.betas} \
             --out {output}
         conda deactivate
         """

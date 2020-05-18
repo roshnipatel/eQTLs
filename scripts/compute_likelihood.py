@@ -4,9 +4,10 @@ import numpy as np
 from iterative_parameter_optimization import update_params
 
 def likelihood(df, delta):
+    ### Note that this actually gives you the NEGATIVE log likelihood and I just haven't changed so as not to confuse myself
     def rowwise_likelihood(row, delta):
         exp = row.Expression
-        additive_effects = row.Genotype_Afr * row.Curr_Effect_Afr + row.Genotype_Eur * row.Curr_Effect_Eur
+        additive_effects = row.Genotype_Afr * row.Curr_Effect_Afr + row.Genotype_Eur * row.Curr_Effect_Eur + row.Race_AA * row.Curr_Int_Afr + (1 - row.Race_AA) * row.Curr_Int_Eur
         interaction = delta * (row.Curr_Effect_Afr - row.Curr_Effect_Eur) * row.Genotype_Eur * row.Race_AA
         row_likelihood = (exp - additive_effects - interaction) ** 2
         return(row_likelihood)
@@ -22,6 +23,7 @@ if __name__ == '__main__':
 
     merged_data = pd.read_csv(args.merged, sep='\t')
     merged_data[["Curr_Effect_Afr", "Curr_Effect_Eur"]] = merged_data[["effect_Afr", "effect_Eur"]]
+    merged_data[["Curr_Int_Afr", "Curr_Int_Eur"]] = merged_data[["intercept_Afr", "intercept_Eur"]]
     if args.betas is not None:
         betas = pd.read_csv(args.betas, sep='\t')
         betas = betas.set_index("Gene")

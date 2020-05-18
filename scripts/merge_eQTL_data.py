@@ -15,12 +15,12 @@ def combine_pheno_files(file_list, hits):
     exp = exp.set_index("ID", append=True)
     return(exp)
 
-def mean_center_expression(exp, geno):
+def add_intercept(df, name, exp, geno):
     hom_ref_mask = geno.where(geno == '0-0').replace(to_replace='0-0', value=1)
     masked_exp = exp * hom_ref_mask
-    hom_ref_mean = masked_exp.mean(axis=1)
-    centered_exp = exp.subtract(hom_ref_mean, axis=0)
-    return(centered_exp)
+    hom_ref_mean = masked_exp.mean(axis=1).reset_index().rename(columns={0: "intercept_" + name})
+    df = pd.merge(df, hom_ref_mean)
+    return(df)
 
 def combine_geno_files(file_list, hits):
     hits = hits[["Gene", "ID"]]
@@ -111,21 +111,24 @@ def prepare_merged_df(afr_hit_path, eur_hit_path, tract_path, n_genes, swap_alle
     afr_genotypes = ancestry_phase_genotypes(afr_genotypes, swap_alleles, tracts)
 
     afr_expression = combine_pheno_files(afr_pheno_files, hits)
-    afr_expression = mean_center_expression(afr_expression, afr_genotypes)
+    # afr_expression = mean_center_expression(afr_expression, afr_genotypes)
     afr_expression = afr_expression[afr_genotypes.columns]
 
     eur_genotypes = combine_geno_files(eur_geno_files, hits)
     eur_genotypes = ancestry_phase_genotypes(eur_genotypes, swap_alleles)
 
     eur_expression = combine_pheno_files(eur_pheno_files, hits)
-    eur_expression = mean_center_expression(eur_expression, eur_genotypes)
+    # eur_expression = mean_center_expression(eur_expression, eur_genotypes)
     eur_expression = eur_expression[eur_genotypes.columns]
+
+    hits = add_intercept(hits, "Afr", afr_expression, afr_genotypes)
+    hits = add_intercept(hits, "Eur", eur_expression, eur_genotypes)
 
     afr_genotypes = reshape_df(afr_genotypes, "Genotype")
     afr_genotypes["Race_AA"] = 1
     eur_genotypes = reshape_df(eur_genotypes, "Genotype")
     eur_genotypes["Race_AA"] = 0
-
+    
     afr_expression = reshape_df(afr_expression, "Expression")
     eur_expression = reshape_df(eur_expression, "Expression")
 
