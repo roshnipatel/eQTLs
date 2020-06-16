@@ -21,10 +21,19 @@ rule all:
         # DATA_DIR + "fastqtl_output/hits_estimation_het.txt",
         # DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt"
         # DATA_DIR + "likelihood_model.txt"
-        expand(DATA_DIR + "MLE/{param}_{idx}.txt", param=["delta", "betas"], idx=[str(i).zfill(3) for i in range(1)]),
-        DATA_DIR + "MLE/likelihood_vs_delta_000.txt"
+        # expand(DATA_DIR + "MLE/{param}_{idx}.txt", param=["delta", "betas"], idx=[str(i).zfill(3) for i in range(5)])
+        # expand(DATA_DIR + "MLE/{param}_fixed_0.txt", param=["delta", "betas"])
+        # DATA_DIR + "MLE/fixed_delta_0/likelihood_vs_delta.txt"
+        # DATA_DIR + "MLE/initial_LR_betas_likelihood_vs_delta.txt"
+        # expand(DATA_DIR + "MLE/no_het_{param}_{idx}.txt", param=["delta", "betas"], idx=[str(i).zfill(3) for i in range(1)])
+        # DATA_DIR + "MLE/no_asc/likelihood_vs_delta_000.txt"
         # DATA_DIR + "MLE/delta_n5_swapped.txt",
         # DATA_DIR + "MLE/betas_n5_swapped.txt"
+        # expand(DATA_DIR + "MLE/simulated_delta_afr{afr_effect}_eur{eur_effect}_delta{delta}.txt", delta=[.2, .5, .8], afr_effect=[1, 3, 5], eur_effect=[1, 3, 5]),
+        # expand(DATA_DIR + "MLE/simulated_betas_afr{afr_effect}_eur{eur_effect}_delta{delta}.txt", delta=[.2, .5, .8], afr_effect=[1, 3, 5], eur_effect=[1, 3, 5])
+        # expand(DATA_DIR + "fastqtl_output/{type}/{anc}/{gene}.txt", type="estimation", anc=["Afr", "Eur"], gene=["ENSG00000002016.17", "ENSG00000002549.12", "ENSG00000002919.14", "ENSG00000004660.14", "ENSG00000004777.18"])
+        DATA_DIR + "MLE/merged_bootstrap_neg_control_delta.txt",
+        DATA_DIR + "MLE/merged_bootstrap_drop_asc_delta.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -549,32 +558,80 @@ rule merge_swapped_data:
 rule optimize:
     input:
         rules.merge_data.output.merged
-        # DATA_DIR + "MLE/merged_data_n5_swapped.txt"
     output:
-        delta=DATA_DIR + "MLE/delta_{idx}.txt",
-        betas=DATA_DIR + "MLE/betas_{idx}.txt"
-        # delta=DATA_DIR + "MLE/delta_n5_swapped.txt",
-        # betas=DATA_DIR + "MLE/betas_n5_swapped.txt"
+        delta=DATA_DIR + "MLE/optimize_{option}_delta_{idx}.txt",
+        betas=DATA_DIR + "MLE/optimize_{option}_betas_{idx}.txt"
     shell:
         """
         conda activate pystats
         python scripts/iterative_parameter_optimization.py --merged {input} \
             --max_iter {MAX_ITER} \
+            --option {wildcards.option} \
             --betas_out {output.betas} \
             --delta_out {output.delta} 
+        conda deactivate
+        """
+
+rule bootstrap:
+    input:
+        rules.merge_data.output.merged
+    output:
+        delta=DATA_DIR + "MLE/bootstrap_{option}_delta_{idx}.txt",
+        betas=temp(DATA_DIR + "MLE/bootstrap_{option}_betas_{idx}.txt")
+    shell:
+        """
+        conda activate pystats
+        python scripts/iterative_parameter_optimization.py --merged {input} \
+            --max_iter {MAX_ITER} \
+            --bootstrap \
+            --option {wildcards.option} \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} 
+        conda deactivate
+        """
+
+rule merge_bootstrap:
+    input:
+        expand(DATA_DIR + "MLE/bootstrap_{{option}}_delta_{idx}.txt", idx=[str(i).zfill(3) for i in range(1000)])
+    output:
+        DATA_DIR + "MLE/merged_bootstrap_{option}_delta.txt"
+    shell:
+        """
+        tail -n 1 {input} | sed '/^0./!d' | sort > {output}
+        """
+
+rule simulate_optimization:
+    output:
+        delta=DATA_DIR + "MLE/simulated_delta_afr{afr_effect}_eur{eur_effect}_delta{delta}.txt",
+        betas=DATA_DIR + "MLE/simulated_betas_afr{afr_effect}_eur{eur_effect}_delta{delta}.txt"
+    shell:
+        """
+        conda activate pystats
+        python scripts/iterative_parameter_optimization.py --simulate_data \
+            --max_iter {MAX_ITER} \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} \
+            --sim_delta {wildcards.delta} \
+            --sim_afr_mean 1 \
+            --sim_eur_mean 1 \
+            --sim_afr_effect {wildcards.afr_effect} \
+            --sim_eur_effect {wildcards.eur_effect} \
+            --sim_afr_maf .3 \
+            --sim_eur_maf .3 
         conda deactivate
         """
 
 rule likelihood:
     input:
         merged=rules.merge_data.output.merged,
-        betas=DATA_DIR + "MLE/betas_{idx}.txt"
+        betas=DATA_DIR + "MLE/no_asc/betas_{idx}.txt"
     output:
-        DATA_DIR + "MLE/likelihood_vs_delta_{idx}.txt"
+        DATA_DIR + "MLE/no_asc/likelihood_vs_delta_{idx}.txt"
     shell:
         """
         conda activate pystats
         python scripts/compute_likelihood.py --merged {input.merged} \
+            --drop_asc \
             --betas {input.betas} \
             --out {output}
         conda deactivate

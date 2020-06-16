@@ -20,7 +20,7 @@ def parse_expression(exp_path, ind):
     # Parse expression data input and filter for desired sample IDs
     exp = pd.read_csv(exp_path, sep='\t')
     exp = exp[ind]
-    exp = exp - exp.mean(axis=1).iloc[0] # Mean-center expression data
+    # exp = exp - exp.mean(axis=1).iloc[0] # Mean-center expression data
     return(exp)
 
 def parse_covariates(cov_file_path, ind):
@@ -73,7 +73,11 @@ def maf_filter(geno, ind, maf_thresh, ma_samp_thresh):
 def perform_regression(geno, exp, ind):
     # Regress genotypes onto expression data
     def marginal_test(row):
-        model = sm.OLS(exp.iloc[0].astype(float), row[ind].astype(float))
+        # model = sm.OLS(exp.iloc[0].astype(float), row[ind].astype(float))
+        y = exp.iloc[0].astype(float)
+        x = pd.DataFrame(row[ind].astype(float))
+        x["int"] = 1
+        model = sm.OLS(y, x)
         results = model.fit()
         effect = results.params[0]
         se = results.bse[0]
