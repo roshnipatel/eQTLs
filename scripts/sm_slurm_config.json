@@ -78,6 +78,14 @@
         "time"      : "2:00:00",
         "memory"    : 2500
     },
+    "bootstrap":
+    {
+        "memory"    : 800
+    },
+    "optimize_no_het":
+    {
+        "memory"    : 3000
+    },
     "optimize":
     {
         "memory"    : 800

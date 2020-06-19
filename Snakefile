@@ -20,20 +20,12 @@ rule all:
         # DATA_DIR + "fastqtl_output/hits_validation_Afr.txt",
         # DATA_DIR + "fastqtl_output/hits_estimation_het.txt",
         # DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt"
-        # DATA_DIR + "likelihood_model.txt"
-        # expand(DATA_DIR + "MLE/{param}_{idx}.txt", param=["delta", "betas"], idx=[str(i).zfill(3) for i in range(5)])
-        # expand(DATA_DIR + "MLE/{param}_fixed_0.txt", param=["delta", "betas"])
-        # DATA_DIR + "MLE/fixed_delta_0/likelihood_vs_delta.txt"
-        # DATA_DIR + "MLE/initial_LR_betas_likelihood_vs_delta.txt"
-        # expand(DATA_DIR + "MLE/no_het_{param}_{idx}.txt", param=["delta", "betas"], idx=[str(i).zfill(3) for i in range(1)])
-        # DATA_DIR + "MLE/no_asc/likelihood_vs_delta_000.txt"
-        # DATA_DIR + "MLE/delta_n5_swapped.txt",
-        # DATA_DIR + "MLE/betas_n5_swapped.txt"
         # expand(DATA_DIR + "MLE/simulated_delta_afr{afr_effect}_eur{eur_effect}_delta{delta}.txt", delta=[.2, .5, .8], afr_effect=[1, 3, 5], eur_effect=[1, 3, 5]),
         # expand(DATA_DIR + "MLE/simulated_betas_afr{afr_effect}_eur{eur_effect}_delta{delta}.txt", delta=[.2, .5, .8], afr_effect=[1, 3, 5], eur_effect=[1, 3, 5])
-        # expand(DATA_DIR + "fastqtl_output/{type}/{anc}/{gene}.txt", type="estimation", anc=["Afr", "Eur"], gene=["ENSG00000002016.17", "ENSG00000002549.12", "ENSG00000002919.14", "ENSG00000004660.14", "ENSG00000004777.18"])
-        DATA_DIR + "MLE/merged_bootstrap_neg_control_delta.txt",
-        DATA_DIR + "MLE/merged_bootstrap_drop_asc_delta.txt"
+        expand(DATA_DIR + "MLE/optimize_neg_control_{param}_{idx}.txt", param=["delta", "betas"], idx=[str(i).zfill(3) for i in range(5)]),
+        expand(DATA_DIR + "MLE/optimize_drop_asc_{param}_{idx}.txt", param=["delta", "betas"], idx=[str(i).zfill(3) for i in range(5)])
+        # DATA_DIR + "MLE/merged_bootstrap_neg_control_delta.txt",
+        # DATA_DIR + "MLE/merged_bootstrap_drop_asc_delta.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
