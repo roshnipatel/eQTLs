@@ -9,6 +9,7 @@ import scipy.stats as stats
 import argparse
 import os
 import feather
+import rnaseqnorm
 
 def gtf_to_bed(annotation_gtf, feature='gene', exclude_chrs=[]):
     """
@@ -104,7 +105,7 @@ def read_gct(gct_file, sample_ids=None, dtype=None):
     return df
 
 
-def prepare_expression(counts_df, tpm_df, vcf_lookup_s, sample_frac_threshold=0.2, count_threshold=6, tpm_threshold=0.1, outlier_threshold=4.5):
+def prepare_expression(counts_df, tpm_df, vcf_lookup_s, tmm=False, sample_frac_threshold=0.2, count_threshold=6, tpm_threshold=0.1, outlier_threshold=4.5):
     """
     Genes are thresholded based on the following expression rules:
       TPM >= tpm_threshold in >= sample_frac_threshold*samples
@@ -119,14 +120,20 @@ def prepare_expression(counts_df, tpm_df, vcf_lookup_s, sample_frac_threshold=0.
     counts_df = counts_df[ix]
     ns = tpm_df.shape[1]
 
-    # normalize read counts at each gene by the total reads sampled per individual
-    norm_df = counts_df.divide(counts_df.sum(axis=0))
 
     # expression thresholds
     mask = (
         (np.sum(tpm_df>=tpm_threshold,axis=1)>=sample_frac_threshold*ns) &
         (np.sum(counts_df>=count_threshold,axis=1)>=sample_frac_threshold*ns)
     ).values
+    
+    if tmm:
+        # scale counts with Trimmed Mean of M-values (originally developed by Robinson and Oshlack, 2010)
+        norm_df = rnaseqnorm.edgeR_cpm(counts_df, normalized_lib_sizes=True)
+    else:
+        # normalize read counts at each gene by the total reads sampled per individual
+        norm_df = counts_df.divide(counts_df.sum(axis=0))
+
     norm_df = norm_df[mask]
 
     # log2 transform resulting expression measurements. convert 0s to nans.
@@ -180,7 +187,7 @@ if __name__=='__main__':
 
     print('Normalizing data', flush=True)
     sample_participant_lookup_s = pd.read_csv(args.sample_participant_lookup, sep='\t', index_col=0, dtype=str, squeeze=True)
-    norm_df = prepare_expression(counts_df, tpm_df, sample_participant_lookup_s, sample_frac_threshold=args.sample_frac_threshold,
+    norm_df = prepare_expression(counts_df, tpm_df, sample_participant_lookup_s, tmm=True, sample_frac_threshold=args.sample_frac_threshold,
         count_threshold=args.count_threshold, tpm_threshold=args.tpm_threshold)
     print('  * {} genes in input tables.'.format(counts_df.shape[0]), flush=True)
     print('  * {} genes remain after thresholding.'.format(norm_df.shape[0]), flush=True)
