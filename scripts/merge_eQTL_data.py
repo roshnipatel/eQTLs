@@ -126,7 +126,8 @@ def prepare_merged_df(afr_hit_path, eur_hit_path, tract_path, n_genes, swap_alle
     eur_expression = combine_pheno_files(eur_pheno_files, hits)
     eur_expression = eur_expression[eur_genotypes.columns]
 
-    # Adds population-specific intercept
+    # Adds population-specific intercept by calculating mean expression in reference homozygotes in each pop.
+    # Now somewhat irrelevant/obsolete because we directly fit pop-specific intercepts (see below).
     hits = add_intercept(hits, "Afr", afr_expression, afr_genotypes)
     hits = add_intercept(hits, "Eur", eur_expression, eur_genotypes)
 
