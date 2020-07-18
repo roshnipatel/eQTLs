@@ -40,6 +40,7 @@ for file_path in args.exp:
     join_type = "inner"
 
 exp_PC = pca(num_exp_PC, expression_na_filled) # Generate PCs on entire dataset
+exp_PC.to_csv(args.out + ".10_PC.txt", sep='\t')
 
 afr_ind = list(afr_samples.index)
 eur_ind = list(eur_samples.index)
