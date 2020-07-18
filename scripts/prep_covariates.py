@@ -28,6 +28,7 @@ samples = pd.read_csv(args.samples, delimiter='\t')
 indiv_metadata = pd.read_csv(args.indiv_metadata)
 sample_metadata = pd.read_csv(args.sample_metadata, delimiter='\t')
 samples = pd.merge(samples, sample_metadata[["TOR_ID", "BroadUWPlate", "Exam", "ageatExam"]])
+samples["Plate_Prefix"] = samples.apply(lambda row: 1 if row.BroadUWPlate[:2] == "SK" else 0, axis=1)
 samples = pd.merge(samples, indiv_metadata[["TOR_ID_rnaseq", "gender1"]], left_on="TOR_ID", right_on="TOR_ID_rnaseq")
 samples = samples.drop("TOR_ID_rnaseq", axis=1).drop("TOR_ID", axis=1).drop_duplicates()
 
