@@ -77,7 +77,7 @@ def reshape_df(df, col_name):
     df = df.stack().reset_index().rename(columns={"level_2": "NWDID", 0: col_name})
     return(df)
 
-def prepare_merged_df(afr_hit_path, eur_hit_path, tract_path, n_genes, swap_alleles, merged_path):
+def prepare_merged_df(afr_hit_path, eur_hit_path, tract_path, n_genes, swap_alleles, cov_paths):
     """Parses local ancestry tracts to determine ancestry-phased genotypes (i.e. # of alt. alleles
        in European ancestry region vs # of alt. alleles in African ancestry region). Resulting DataFrame
        has one row for each variant for each individual (i.e. total number of rows is nm, where 
@@ -144,12 +144,19 @@ def prepare_merged_df(afr_hit_path, eur_hit_path, tract_path, n_genes, swap_alle
     genotypes = pd.concat([afr_genotypes, eur_genotypes])
     merged_data = pd.merge(expression, genotypes)
     merged_data = pd.merge(merged_data, hits)
+
+    # Merge covariate information if provided
+    if cov_paths is not None:
+        cov = pd.DataFrame()
+        for path in cov_paths:
+            tmp = pd.read_csv(path, sep='\t')
+            cov = pd.concat([cov, tmp])
+        merged_data = pd.merge(merged_data, cov)
+
     merged_data = merged_data.dropna(subset=["Genotype", "Expression", "effect_Afr", "effect_Eur", "Race_AA"])
 
     # Split ancestry-phased genotype into its constituent columns
     merged_data[["Genotype_Eur", "Genotype_Afr"]] = merged_data.apply(lambda x: pd.Series([int(x.Genotype[0]), int(x.Genotype[2])]), axis=1)
-
-    merged_data.to_csv(merged_path, sep='\t', index=False)
 
     return(merged_data)
 
@@ -160,7 +167,9 @@ if __name__ == '__main__':
     parser.add_argument('--eur_hits')
     parser.add_argument('--swap_ref_alt', action='store_true')
     parser.add_argument('--n_genes', default=None)
+    parser.add_argument('--covariates', nargs='+')
     parser.add_argument('--out')
     args = parser.parse_args()
 
-    merged_data = prepare_merged_df(args.afr_hits, args.eur_hits, args.tracts, args.n_genes, args.swap_ref_alt, args.out)
+    merged_data = prepare_merged_df(args.afr_hits, args.eur_hits, args.tracts, args.n_genes, args.swap_ref_alt, args.covariates)
+    merged_data.to_csv(args.out, sep='\t', index=False)
