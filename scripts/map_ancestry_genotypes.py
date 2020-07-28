@@ -12,10 +12,11 @@ def find_match(x, df):
     return('after')
 
 def anc_geno_string(tup, swap):
+    print(tup)
     geno = {'CEU': 0, 'YRI': 0}
     for i in range(2):
-        anc = tup[1][i]
-        if anc != None:
+        anc = tup[1].split(',')[i].strip()
+        if anc != "None":
             count = int(tup[0].split('|')[i])
             if swap:
                 count = 1 - count
