@@ -17,7 +17,7 @@
     },
     "normalize_expression":
     {
-        "memory"    : 5000,
+        "memory"    : 15000,
         "time"      : "30:00"
     },
     "indiv_filter":
@@ -64,35 +64,56 @@
     {
         "time"      : "10:00"
     },
-    "merge_output":
+    "merge_reestimation":
     {
         "time"      : "4:00:00",
         "memory"    : 3000
     },
+    "merge_ascertainment":
+    {
+        "time"      : "4:00:00",
+        "memory"    : 3000
+    },
+    "extract_hits":
+    {
+        "memory"    : 3000
+    },
     "identify_hits":
     {
-        "memory"    : 2000
+        "memory"    : 3000
+    },
+    "perform_simulation":
+    {
+        "time"      : "15:00",
+        "memory"    : 5000
     },
     "merge_data":
     {
         "time"      : "2:00:00",
-        "memory"    : 2500
+        "memory"    : 10000
     },
     "bootstrap":
     {
-        "memory"    : 800
+        "time"      : "15:00",
+        "memory"    : 2000
     },
     "optimize_no_het":
     {
         "memory"    : 3000
     },
+    "optimize_simulated_data":
+    {
+        "memory"    : 2000,
+        "time"      : "30:00"
+    },
     "optimize":
     {
-        "memory"    : 800
+        "time"      : "30:00",
+        "memory"    : 2000
     },
     "likelihood":
     {
-        "memory"    : 1300,
+        "memory"    : 3000,
         "time"      : "5:00:00"
     }
 }
