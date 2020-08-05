@@ -5,14 +5,12 @@ import scipy.stats
 from identify_hits import FDR_threshold
 
 # Specify constants
-VAR_AFR_BETA = .3
-VAR_EUR_BETA = .3
 MEAN_AFR_BETA = 0
 MEAN_EUR_BETA = 0
 N_ASC_IDV = 200
 N_EST_IDV = 150
-N_SIG_SNP = 1500
-FDR_THRESHOLD = .1
+N_SIG_SNP = 2800
+FDR_THRESHOLD = .05
 FRAC_NON_CAUSAL = .8
 
 # Specify parameters for the beta distribution used to sample global ancestry
@@ -105,23 +103,34 @@ def simulate_genotypes(row, SNP_df):
     for lanc in row:
         geno_Afr = np.random.binomial(lanc, SNP_df.loc[row.name, "MAF_Afr"])
         geno_Eur = np.random.binomial(2 - lanc, SNP_df.loc[row.name, "MAF_Eur"])
-        geno.append(str(geno_Afr) + "-" + str(geno_Eur))
+        geno.append(str(geno_Eur) + "-" + str(geno_Afr))
     return(geno)
 
-def simulate_phenotypes(row, SNP_df):
+def simulate_phenotypes(row, SNP_df, race_df, delta):
     pheno = []
     # Simulate phenotypes as betas weighted by genotypes, plus random, normally-distributed noise
-    for geno in row:
-        pheno_Afr = int(geno[0]) * SNP_df.loc[row.name, "Beta_Afr"]
-        pheno_Eur = int(geno[2]) * SNP_df.loc[row.name, "Beta_Eur"]
+    beta_Afr = SNP_df.loc[row.name, "Beta_Afr"]
+    beta_Eur = SNP_df.loc[row.name, "Beta_Eur"]
+    for i in range(len(row)):
+        geno = row.values[i]
+        ind = row.index[i]
+        ind_race = race_df.loc[ind, "Race_AA"]
+        geno_Eur = int(geno[0])
+        geno_Afr = int(geno[2])
+        pheno_Afr = geno_Afr * beta_Afr
+        pheno_Eur = geno_Eur * beta_Eur
         noise = np.random.normal(0, np.sqrt(VAR_ERROR))
-        pheno.append(pheno_Afr + pheno_Eur + noise)
+        interaction = delta * (beta_Afr - beta_Eur) * geno_Eur * ind_race
+        pheno.append(pheno_Afr + pheno_Eur + noise + interaction)
     return(pheno)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--var_afr', help="specified variance of African tag SNP effects")
+    parser.add_argument('--var_eur', help="specified variance of European tag SNP effects")
     parser.add_argument('--covariance', help="specified covariance between African and European tag SNP effects")
     parser.add_argument('--error', help="specified error term")
+    parser.add_argument('--delta', help="specified delta term")
     parser.add_argument('--afr_hits', help="African hits")
     parser.add_argument('--eur_hits', help="European hits")
     parser.add_argument('--out', help="output file")
@@ -132,6 +141,11 @@ if __name__ == '__main__':
     COVARIANCE = float(args.covariance)
     global VAR_ERROR
     VAR_ERROR = float(args.error)
+    delta = float(args.delta)
+    global VAR_EUR_BETA
+    global VAR_AFR_BETA
+    VAR_EUR_BETA = float(args.var_eur)
+    VAR_AFR_BETA = float(args.var_afr)
 
     # Create MAF distribution from input data
     maf_dist = create_MAF_dist(args.afr_hits, args.eur_hits)
@@ -147,7 +161,7 @@ if __name__ == '__main__':
     ganc = pd.DataFrame(race.apply(simulate_ganc, axis=1))
     lanc = ganc.apply(lambda x: simulate_lanc(x, n_sig_SNPs), axis=1, result_type='expand').T
     geno = lanc.apply(lambda x: simulate_genotypes(x, sig_SNPs), axis=1, result_type='expand')
-    pheno = geno.apply(lambda x: simulate_phenotypes(x, sig_SNPs), axis=1, result_type='expand')
+    pheno = geno.apply(lambda x: simulate_phenotypes(x, sig_SNPs, race, delta), axis=1, result_type='expand')
 
     # Reshape data into the right structure
     geno = geno.stack().reset_index().rename({"level_0": "Gene", "level_1": "Ind", 0: "Genotype"}, axis=1)
@@ -155,7 +169,7 @@ if __name__ == '__main__':
     merged_simulated_data = pd.merge(geno, pheno)
     merged_simulated_data = pd.merge(merged_simulated_data, sig_SNPs, left_on="Gene", right_index=True)
     merged_simulated_data = pd.merge(merged_simulated_data, race, left_on="Ind", right_index=True)
-    merged_simulated_data[["Genotype_Afr", "Genotype_Eur"]] = merged_simulated_data.apply(lambda x: pd.Series([int(x.Genotype[0]), int(x.Genotype[2])]), axis=1)
+    merged_simulated_data[["Genotype_Eur", "Genotype_Afr"]] = merged_simulated_data.apply(lambda x: pd.Series([int(x.Genotype[0]), int(x.Genotype[2])]), axis=1)
     merged_simulated_data["intercept_Eur"] = None
     merged_simulated_data["intercept_Afr"] = None
 
