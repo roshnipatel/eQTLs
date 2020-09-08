@@ -17,29 +17,42 @@
     },
     "normalize_expression":
     {
-        "memory"    : 5000,
+        "memory"    : 15000,
         "time"      : "30:00"
+    },
+    "snp_filter":
+    {
+        "time"      : "1:00:00"
     },
     "indiv_filter":
     {
-        "time"      : "1:00:00"
+        "time"      : "30:00"
+    },
+    "prune":
+    {
+        "time"      : "20:00"
     },
     "MAF_filter":
     {
         "time"      : "20:00"
     },
-    "generate_group_PC":
+    "PCA":
     {
-        "memory"    : 15000,
-        "time"      : "10:00"
+        "memory"    : 30000,
+        "time"      : "30:00"
     },
     "prep_covariates":
     {
         "memory"    : 15000,
         "time"      : "10:00"
     },
+    "find_indep_snps":
+    {
+        "memory"    : 5000
+    },
     "make_anc_bed":
     {
+        "time"      : "20:00",
         "memory"    : 500
     },
     "intersect_tracts_genes":
@@ -64,13 +77,58 @@
     {
         "time"      : "10:00"
     },
-    "merge_output":
+    "merge_reestimation":
     {
         "time"      : "4:00:00",
         "memory"    : 3000
     },
+    "merge_ascertainment":
+    {
+        "time"      : "4:00:00",
+        "memory"    : 3000
+    },
+    "extract_hits":
+    {
+        "time"      : "30:00",
+        "memory"    : 3000
+    },
     "identify_hits":
     {
+        "memory"    : 3000
+    },
+    "perform_simulation":
+    {
+        "time"      : "30:00",
+        "memory"    : 20000
+    },
+    "merge_data":
+    {
+        "time"      : "2:00:00",
+        "memory"    : 30000
+    },
+    "bootstrap":
+    {
+        "time"      : "15:00",
+        "memory"    : 5000
+    },
+    "optimize_simulated_data":
+    {
+        "time"      : "15:00",
+        "memory"    : 5000
+    },
+    "correlate_expression":
+    {
+        "time"      : "30:00",
         "memory"    : 2000
+    },
+    "optimize":
+    {
+        "time"      : "15:00",
+        "memory"    : 5000
+    },
+    "likelihood":
+    {
+        "memory"    : 10000,
+        "time"      : "24:00:00"
     }
 }

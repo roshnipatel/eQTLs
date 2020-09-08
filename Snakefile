@@ -4,22 +4,34 @@ include: "scripts/snakemake_variables.py"
 shell.executable("/usr/bin/bash")
 shell.prefix("source ~/.bashrc; ")
 
-# TODO use glob + expand to properly specify input of make_anc_bed
- 
 rule all:
     input:
-        DATA_DIR + "fastqtl_output/randsamp_merged_ascertainment_Eur.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_estimation_Eur.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_validation_Eur.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_validation_Afr.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_estimation_het.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_estimation_Afr.txt",
-        DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_estimation_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_validation_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_validation_Afr.txt",
-        DATA_DIR + "fastqtl_output/hits_estimation_het.txt",
-        DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt"
+        ### For eQTL calling
+        # DATA_DIR + "fastqtl_output/randsamp_merged_ascertainment_Eur.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_Eur.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_validation_Eur.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_validation_Afr.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_het.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_Afr.txt",
+        # DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt",
+        # DATA_DIR + "fastqtl_output/hits_reestimation_validation_Eur.txt",
+        # DATA_DIR + "fastqtl_output/hits_reestimation_validation_Afr.txt",
+        # DATA_DIR + "fastqtl_output/hits_reestimation_primary_Eur.txt",
+        # DATA_DIR + "fastqtl_output/hits_reestimation_primary_het.txt",
+        # DATA_DIR + "fastqtl_output/hits_reestimation_primary_Afr.txt"
+        #
+        ### For likelihood model stuff:
+        # DATA_DIR + "MLE/merged_data.txt",
+        # expand(DATA_DIR + "MLE/{cov}/optimize_{option}_{param}.txt", cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"], option=["neg_control", "drop_asc"], param=["delta", "betas"]),
+        # expand(DATA_DIR + "MLE/{cov}/results_bootstrap_{option}_delta.summary.txt", cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"], option=['neg_control', 'drop_asc']),
+        # expand(DATA_DIR + "MLE/{cov}/likelihood_vs_delta_{option}.txt", option=["neg_control", "drop_asc"], cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"])
+        # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.13, 0.17, 0.30], corr=[0.8], n_snp=[3200], n_idv=["200_150"]),
+        # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.5, 0.8, 0.9], n_snp=[3200], n_idv=["200_150"]),
+        # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.8], n_snp=[1000, 3200, 6000], n_idv=["200_150"]),
+        # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.8], n_snp=[3200], n_idv=["200_150", "350_150", "500_300"])
+        #
+        ### For covariate/PC stuff:
+        DATA_DIR + "correlation.expression_regressed.global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -35,50 +47,25 @@ rule annotate_genes:
         conda deactivate
         """
 
-################################ CHOOSE SAMPLES ################################
-
-rule make_geno_list:
-    input:
-        DATA_DIR + VCF 
-    output:
-        DATA_DIR + "genotyped_individual_IDs.txt"
-    shell:
-        """
-        zgrep -m 1 "^#CHROM" {input} | sed 's/   /\n/g' > {output}
-        """
-
-rule make_exp_list:
-    input:
-        DATA_DIR + READS 
-    output:
-        DATA_DIR + "rnaseqd_individual_IDs.txt"
-    shell:
-        """
-        zgrep -m 1 "Name" {input} | cut -f 1,2 --complement | tr '\t' '\n' > {output}
-        """
+############################# NORMALIZE EXPRESSION #############################
 
 rule select_samples:
     input:
         sample_data=DATA_DIR + RNASEQ_METADATA,
-        geno_ID=rules.make_geno_list.output,
-        exp_ID=rules.make_exp_list.output,
-        ind_data=DATA_DIR + IND_METADATA 
+        exclusion_list=EXCLUSION_FILE
     output:
-        DATA_DIR + "sample_participant_lookup_{anc}.txt"
+        expand(DATA_DIR + "select_samples_{anc}.txt", anc=["Afr", "Eur"])
+    params:
+        prefix=DATA_DIR + "select_samples"
     shell:
         """
         conda activate py36
         python {SAMPLE_SELECTION_SCRIPT} \
             --sample_data {input.sample_data} \
-            --ind_data {input.ind_data} \
-            --ancestry {wildcards.anc} \
-            --genotyped_individuals {input.geno_ID} \
-            --rnaseq_individuals {input.exp_ID} \
-            --output {output}
+            --exclusion_list {input.exclusion_list} \
+            --output {params.prefix}
         conda deactivate
         """
-
-############################# NORMALIZE EXPRESSION #############################
 
 rule make_chr_list:
     input:
@@ -97,8 +84,9 @@ rule normalize_expression:
         tpm=DATA_DIR + TPM,
         counts=DATA_DIR + READS,
         anno=rules.annotate_genes.output,
-        sample_map=rules.select_samples.output,
-        chr_list=rules.make_chr_list.output
+        sample_map=DATA_DIR + "select_samples_{anc}.txt",
+        chr_list=rules.make_chr_list.output,
+        flag=DATA_DIR + "vcf_filter_{anc}.done"
     output:
         bed=DATA_DIR + "mesa.{anc}.expression.bed.gz",
         idx=DATA_DIR + "mesa.{anc}.expression.bed.gz.tbi"
@@ -129,22 +117,39 @@ rule make_gene_list:
 
 ############################# GENERATE COVARIATES #############################
 
+rule snp_filter:
+    input:
+        vcf=ancient(DATA_DIR + VCF)
+    output:
+        vcf=DATA_DIR + "mesa.filt.bcf.gz",
+        idx=DATA_DIR + "mesa.filt.bcf.gz.csi"
+    shell:
+        """
+        conda activate bcftools-env
+        bcftools view -m2 -M2 -v snps -Ob --genotype ^miss --phased -o {output.vcf} {input.vcf}
+        bcftools index -c {output.vcf}
+        conda deactivate
+        """
+    
 rule indiv_filter:
     input:
-        vcf=ancient(DATA_DIR + VCF),
-        samples=rules.select_samples.output
+        vcf=rules.snp_filter.output.vcf,
+        samples=DATA_DIR + "select_samples_{anc}.txt"
     output:
-        vcf=DATA_DIR + "mesa.{anc}.vcf.gz",
-        idx=DATA_DIR + "mesa.{anc}.vcf.gz.tbi"
+        vcf=DATA_DIR + "mesa.{anc,[A-Za-z]+}.bcf.gz",
+        idx=DATA_DIR + "mesa.{anc,[A-Za-z]+}.bcf.gz.csi",
+        flag=DATA_DIR + "vcf_filter_{anc}.done"
     shell:
         """
         conda activate bcftools-env
         SAMP=$(tail -n +2 {input.samples} | cut -f2 | tr '\n' ',' | sed 's/,$//')
-        bcftools view -s $SAMP --force-samples -Ou {input.vcf} | \
-            bcftools view --genotype ^miss --phased -Oz -o {output.vcf}
-        conda deactivate
-        conda activate tabix-env
-        tabix -p vcf {output.vcf}
+        bcftools view -m2 -M2 -v snps -Ou --genotype ^miss --phased {input.vcf} | \
+            bcftools view -s $SAMP --force-samples -Ob -o {output.vcf}
+        bcftools index -c {output.vcf}
+        # Hodge-podge way of updating sample list based on individuals actually present in VCF
+        cat <(head -n 1 {input.samples}) <(grep -f <(bcftools query -l {input.vcf}) {input.samples}) > tmp_{wildcards.anc}.txt
+        mv tmp_{wildcards.anc}.txt {input.samples}
+        touch {output.flag}
         conda deactivate
         """
 
@@ -152,20 +157,22 @@ rule MAF_filter:
     input:
         rules.indiv_filter.output.vcf
     output:
-        DATA_DIR + "maf05.mesa.{anc}.vcf.gz"
+        vcf=DATA_DIR + "mesa.{anc}.maf05.vcf.gz",
+        idx=DATA_DIR + "mesa.{anc}.maf05.vcf.gz.csi"
     shell:
         """
         conda activate bcftools-env
-        bcftools view --min-af .05 -Oz -o {output} {input}
+        bcftools view --min-af .05 -Oz -o {output.vcf} {input}
+        bcftools index -c {output.vcf}
         conda deactivate
         """
 
 rule find_indep_snps:
     input:
-        vcf=rules.MAF_filter.output
+        vcf=rules.MAF_filter.output.vcf
     output:
-        keep=DATA_DIR + "maf05.mesa.{anc}.prune.in",
-        exclude=temp(expand(DATA_DIR + "maf05.mesa.{{anc}}.{ext}", ext=["log", "nosex", "prune.out"]))
+        keep=temp(DATA_DIR + "mesa.{anc}.maf05.prune.in"),
+        exclude=temp(expand(DATA_DIR + "mesa.{{anc}}.maf05.{ext}", ext=["log", "nosex", "prune.out"]))
     params:
         prefix=lambda wildcards, output: output.keep[:-9]
     shell:
@@ -178,10 +185,10 @@ rule find_indep_snps:
 
 rule prune:
     input:
-        vcf=rules.MAF_filter.output,
+        vcf=rules.MAF_filter.output.vcf,
         snps=rules.find_indep_snps.output.keep
     output:
-        DATA_DIR + "prune.maf05.mesa.{anc}.vcf.gz"
+        DATA_DIR + "mesa.{anc}.prune.maf05.vcf.gz"
     shell:
         """
         conda activate bcftools-env
@@ -189,85 +196,65 @@ rule prune:
         conda deactivate
         """
 
+rule PCA:
+    input:
+        expand(DATA_DIR + "mesa.{anc}.{{filetype}}.gz", anc=["Afr", "Eur"])
+    output:
+        pc=DATA_DIR + "mesa.{filetype}.principal_components.txt",
+        eig=DATA_DIR + "mesa.{filetype}.eigenvalues.txt"
+    params:
+        out=DATA_DIR + "mesa.{filetype}"
+    shell:
+        """
+        conda activate pystats
+        python {PCA_SCRIPT} \
+            --data {input} \
+            --n 10 \
+            --filetype {wildcards.filetype} \
+            --out {params.out}
+        conda deactivate
+        """
+
 rule prep_covariates:
     input:
-        vcf=rules.prune.output,
-        exp=rules.normalize_expression.output.bed,
-        samples=rules.select_samples.output,
-        indiv_data=DATA_DIR + IND_METADATA,
-        sample_data=DATA_DIR + RNASEQ_METADATA 
+        samples=expand(DATA_DIR + "select_samples_{anc}.txt", anc=["Afr", "Eur"]),
+        ganc=DATA_DIR + "combined_global_anc_frac.txt",
+        pc=expand(rules.PCA.output.pc, filetype=["prune.maf05.vcf", "expression.bed"]),
+        sample_data=DATA_DIR + RNASEQ_METADATA,
+        flag=expand(DATA_DIR + "vcf_filter_{anc}.done", anc=["Afr", "Eur"])
     output:
-        DATA_DIR + "mesa.{anc}.sample_covariates.txt"
+        DATA_DIR + "mesa.sample_covariates.txt"
     shell:
         """
         conda activate pystats
         python {COV_PREP_SCRIPT} \
             --samples {input.samples} \
-            --indiv_metadata {input.indiv_data} \
             --sample_metadata {input.sample_data} \
-            --vcf {input.vcf} \
-            --exp {input.exp} \
+            --global_anc {input.ganc} \
+            --pca {input.pc} \
             --out {output}
         conda deactivate
         """
 
-rule generate_group_PC:
+rule extract_linreg_covariates:
     input:
-        afr=expand(rules.select_samples.output, anc="Afr"),
-        eur=expand(rules.select_samples.output, anc="Eur"),
-        exp=expand(rules.normalize_expression.output.bed, anc=["Afr", "Eur"])
+        DATA_DIR + "mesa.sample_covariates.txt"
     output:
-        expand(DATA_DIR + "mesa.residual_expression.{anc}.bed.gz", anc=["Afr", "Eur"])
-    params:
-        DATA_DIR + "mesa.residual_expression"
+        DATA_DIR + "mesa.sample_covariates_for_regression.txt"
     shell:
         """
-        conda activate pystats
-        python {GRP_PREP_SCRIPT} \
-            --afr {input.afr} \
-            --eur {input.eur} \
-            --exp {input.exp} \
-            --out {params}
-        conda deactivate
-        """
-
-rule exclude_all_PC:
-    input:
-        rules.prep_covariates.output
-    output:
-        DATA_DIR + "mesa.{anc}.sample_covariates.no_PC.txt"
-    shell:
-        """
-        cut -f 1-5 {input} > {output}
-        """
-
-rule exclude_exp_PC:
-    input:
-        rules.prep_covariates.output
-    output:
-        DATA_DIR + "mesa.{anc}.sample_covariates.no_exp_PC.txt"
-    shell:
-        """
-        cut -f 1-5,16-30 {input} > {output}
-        """
-
-rule extract_exp_PC:
-    input:
-        rules.prep_covariates.output
-    output:
-        DATA_DIR + "mesa.{anc}.sample_covariates.exp_PC.txt"
-    shell:
-        """
-        cut -f 1,6-15 {input} > {output}
+        cut -f 2,3,4,10 {input} > {output}
         """
 
 ############################## PARTITION SAMPLES ##############################
 
 rule make_anc_bed:
+    input:
+        expand(BED_DIR + "chr{chr}/job_complete.txt", chr=CHROMS)
     output:
         DATA_DIR + "anc_tracts.bed"
     params:
-        dir=DATA_DIR + "bed/"
+        dir=BED_DIR
     shell:
         """
         conda activate py36
@@ -307,9 +294,10 @@ rule intersect_tracts_genes:
 checkpoint partition_samples:
     input:
         intersect=rules.intersect_tracts_genes.output,
-	afr_samples=expand(rules.select_samples.output, anc=["Afr"]),
-	eur_samples=expand(rules.select_samples.output, anc=["Eur"]),
-        genes=rules.make_gene_list.output
+	afr_samples=expand(DATA_DIR + "select_samples_{anc}.txt", anc=["Afr"]),
+	eur_samples=expand(DATA_DIR + "select_samples_{anc}.txt", anc=["Eur"]),
+        genes=rules.make_gene_list.output,
+        flag=expand(DATA_DIR + "vcf_filter_{anc}.done", anc=["Afr", "Eur"])
     output:
         directory(DATA_DIR + "fastqtl_sample_input")
     params:
@@ -317,11 +305,11 @@ checkpoint partition_samples:
     shell:
         """
         mkdir -p {params.output_dir}/ascertainment/Eur
-        mkdir -p {params.output_dir}/estimation/Afr
-        mkdir -p {params.output_dir}/estimation/het
-        mkdir -p {params.output_dir}/estimation/Eur
-        mkdir -p {params.output_dir}/validation/Eur
-        mkdir -p {params.output_dir}/validation/Afr
+        mkdir -p {params.output_dir}/reestimation_primary/Afr
+        mkdir -p {params.output_dir}/reestimation_primary/het
+        mkdir -p {params.output_dir}/reestimation_primary/Eur
+        mkdir -p {params.output_dir}/reestimation_validation/Eur
+        mkdir -p {params.output_dir}/reestimation_validation/Afr
         conda activate py36
         python {PARTITION_SCRIPT} \
             --intersect {input.intersect} \
@@ -333,48 +321,12 @@ checkpoint partition_samples:
         conda deactivate
         """
 
-# checkpoint add_validation_samp:
-#     input:
-#         intersect=rules.intersect_tracts_genes.output,
-# 	afr_samples=expand(rules.select_samples.output, anc=["Afr"]),
-# 	eur_samples=expand(rules.select_samples.output, anc=["Eur"]),
-#         genes=rules.make_gene_list.output
-#     output:
-#         directory(DATA_DIR + "secondary_validation")
-#     params:
-#         output_dir=DATA_DIR + "secondary_validation"
-#     shell:
-#         """
-#         mkdir -p {params.output_dir}/validation/Afr
-#         conda activate py36
-#         python {PARTITION_SCRIPT} \
-#             --intersect {input.intersect} \
-#             --afr_samples {input.afr_samples} \
-#             --eur_samples {input.eur_samples} \
-#             --genes {input.genes} \
-#             --afr_validation_run \
-#             --out {params.output_dir}
-#         conda deactivate
-#         """
-# 
-# rule move_validation_files:
-#     input:
-#         DATA_DIR + "secondary_validation/validation/Afr/{gene}.txt"
-#     output:
-#         DATA_DIR + "fastqtl_sample_input/validation/Afr/{gene}.txt"
-#     params:
-#         output_dir=DATA_DIR + "fastqtl_sample_input/validation/Afr"
-#     shell:
-#         """
-#         mkdir -p {params.output_dir}
-#         cp {input} {output}
-#         """
-
-################################## CALL EQTLS ##################################
+############################ LIN REG EQTL CALLING ############################
 
 rule subset_geno:
     input:
-        vcf=rules.indiv_filter.output,
+        vcf=DATA_DIR + "mesa.{anc}.maf05.vcf.gz",
+        idx=DATA_DIR + "mesa.{anc}.maf05.vcf.gz.csi",
         gene_window=rules.make_genes_bed.output
     output:
         DATA_DIR + "fastqtl_geno_input/{anc}/{gene}.vcf.gz"
@@ -413,7 +365,8 @@ rule call_eQTLs:
         pheno_input=lambda wildcards: expand(rules.subset_pheno.output, anc="Eur", \
             gene=wildcards.gene) if wildcards.anc == "Eur" else \
             expand(rules.subset_pheno.output, anc="Afr", gene=wildcards.gene),
-        sample_input=DATA_DIR + "fastqtl_sample_input/{type}/{anc}/{gene}.txt"
+        sample_input=DATA_DIR + "fastqtl_sample_input/{type}/{anc}/{gene}.txt",
+        covariates=DATA_DIR + "mesa.sample_covariates_for_regression.txt"
     output:
         DATA_DIR + "fastqtl_output/{type}/{anc}/{gene}.txt"
     params:
@@ -425,27 +378,33 @@ rule call_eQTLs:
         python {EQTL_SCRIPT} \
             --phenotypes {input.pheno_input} \
             --genotypes {input.geno_input} \
+            --covariates {input.covariates} \
             --samples {input.sample_input} \
             --type {wildcards.type} \
             --out {output}
         conda deactivate
         """
 
-def merge_input(wildcards):
+def merge_asc_input(wildcards):
     checkpoint_output = checkpoints.partition_samples.get(**wildcards).output[0]
-    # checkpoint_output = checkpoints.add_validation_samp.get(**wildcards).output[0]
-    return expand(DATA_DIR + "fastqtl_output/{type}/{anc}/{gene}.txt",
-                  type=wildcards.type, anc=wildcards.anc,
-                  gene=glob_wildcards(os.path.join(checkpoint_output, wildcards.type, 
-                                      wildcards.anc, "{gene}.txt")).gene)
+    return expand(DATA_DIR + "fastqtl_output/ascertainment/Eur/{gene}.txt",
+                  gene=glob_wildcards(os.path.join(checkpoint_output, "ascertainment", 
+                                      "Eur", "{gene}.txt")).gene)
 
-rule merge_output:
+def merge_est_input(wildcards):
+    checkpoint_output = checkpoints.identify_hits.get(**wildcards).output[0]
+    sig_genes = list(pd.read_csv(checkpoint_output, sep='\t')["gene"])
+    return expand(DATA_DIR + "fastqtl_output/reestimation_{type}/{anc}/{gene}.txt",
+                  type=wildcards.type, anc=wildcards.anc,
+                  gene=sig_genes)
+
+rule merge_ascertainment:
     input:
-        merge_input
+        merge_asc_input
     output:
-        DATA_DIR + "fastqtl_output/merged_{type}_{anc}.txt"
+        DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt"
     params:
-        dir=DATA_DIR + "fastqtl_output/{type}/{anc}/"
+        dir=DATA_DIR + "fastqtl_output/ascertainment/Eur/"
     shell:
         """
         conda activate py36
@@ -453,31 +412,254 @@ rule merge_output:
         conda deactivate 
         """
 
-rule identify_hits:
+rule merge_reestimation:
     input:
-        asc=DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt", 
-        eur=DATA_DIR + "fastqtl_output/merged_estimation_Eur.txt",
-        val=DATA_DIR + "fastqtl_output/merged_validation_Eur.txt",
-        val_afr=DATA_DIR + "fastqtl_output/merged_validation_Afr.txt",
-        het=DATA_DIR + "fastqtl_output/merged_estimation_het.txt",
-        afr=DATA_DIR + "fastqtl_output/merged_estimation_Afr.txt"
+        merge_est_input
     output:
-        DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_estimation_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_validation_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_validation_Afr.txt",
-        DATA_DIR + "fastqtl_output/hits_estimation_het.txt",
-        DATA_DIR + "fastqtl_output/hits_estimation_Afr.txt"
+        DATA_DIR + "fastqtl_output/merged_reestimation_{type}_{anc}.txt"
+    params:
+        dir=DATA_DIR + "fastqtl_output/reestimation_{type}/{anc}/"
+    shell:
+        """
+        conda activate py36
+        python {MERGE_RES} --dir {params.dir} --out {output}
+        conda deactivate 
+        """
+
+checkpoint identify_hits:
+    input:
+        asc=DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt" 
+    output:
+        DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt"
     params:
         DATA_DIR + "fastqtl_output/"
     shell:
         """
         mkdir -p {params}
-        module reset
-        module load R
-        Rscript --vanilla {HITS_SCRIPT} --asc {input.asc} --eur {input.eur} \
-            --het {input.het} --afr {input.afr} --val {input.val} --val_afr {input.val_afr} \
-            --out {params}
+        conda activate py36
+        python {ID_HITS_SCRIPT} --ascertainment \
+            --merged {input.asc} \
+            --out {output} \
+            --fdr {FDR}
+        conda deactivate
+        """
+
+rule extract_hits:
+    input:
+        merged=DATA_DIR + "fastqtl_output/merged_reestimation_{type}_{anc}.txt",
+        hits=DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt"
+    output:
+        DATA_DIR + "fastqtl_output/hits_reestimation_{type}_{anc}.txt"
+    params:
+        DATA_DIR + "fastqtl_output/"
+    shell:
+        """
+        mkdir -p {params}
+        conda activate py36
+        python {ID_HITS_SCRIPT} --reestimation \
+            --merged {input.merged} \
+            --hits {input.hits} \
+            --out {output}
+        conda deactivate
+        """
+
+############################# LIKELIHOOD MODEL ################################
+
+def hit_genes():
+    afr_df = pd.read_csv("data/fastqtl_output/hits_reestimation_primary_Afr.txt", sep='\t')
+    eur_df = pd.read_csv("data/fastqtl_output/hits_reestimation_primary_Eur.txt", sep='\t')
+    afr_genes = set(afr_df["gene"])
+    eur_genes = set(eur_df["gene"])
+    genes = list(afr_genes.intersection(eur_genes))
+    return(genes)
+
+rule merge_data:
+    input:
+        afr_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Afr"),
+        afr_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Afr"),
+        eur_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Eur"),
+        eur_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Eur"),
+        tracts=rules.make_anc_bed.output,
+        cov=rules.prep_covariates.output,
+        afr_hits="data/fastqtl_output/hits_reestimation_primary_Afr.txt",
+        eur_hits="data/fastqtl_output/hits_reestimation_primary_Eur.txt"
+    output:
+        merged=DATA_DIR + "MLE/merged_data.txt"
+    params:
+        out_dir=DATA_DIR + "MLE/"
+    shell:
+        """
+        mkdir -p {params.out_dir}
+        conda activate pystats
+        python scripts/merge_eQTL_data.py --tracts {input.tracts} \
+            --afr_hits {input.afr_hits} \
+            --eur_hits {input.eur_hits} \
+            --covariates {input.cov} \
+            --out {output.merged}
+        conda deactivate
+        """
+
+rule merge_swapped_data:
+    input:
+        afr_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Afr"),
+        afr_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Afr"),
+        eur_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Eur"),
+        eur_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Eur"),
+        tracts=rules.make_anc_bed.output,
+        afr_hits="results/QTL_calling/v3.1/hits/hits_estimation_Afr.txt",
+        eur_hits="results/QTL_calling/v3.1/hits/hits_estimation_Eur.txt"
+    output:
+        merged=DATA_DIR + "MLE/merged_data_n5_swapped.txt"
+    params:
+        out_dir=DATA_DIR + "MLE/"
+    shell:
+        """
+        mkdir -p {params.out_dir}
+        conda activate pystats
+        python scripts/merge_eQTL_data.py --tracts {input.tracts} \
+            --afr_hits {input.afr_hits} \
+            --eur_hits {input.eur_hits} \
+            --n_genes 5 \
+            --swap_ref_alt \
+            --out {output.merged}
+        conda deactivate
+        """
+
+rule optimize:
+    input:
+        DATA_DIR + "MLE/merged_data.txt"
+    output:
+        delta=DATA_DIR + "MLE/{cov}/optimize_{option}_delta.txt",
+        betas=DATA_DIR + "MLE/{cov}/optimize_{option}_betas.txt"
+    params:
+        cov=lambda wildcards: wildcards.cov.split('.'),
+        dir=DATA_DIR + "MLE/{cov}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python scripts/iterative_parameter_optimization.py --merged {input} \
+            --max_iter {MAX_ITER} \
+            --covariates {params.cov} \
+            --option {wildcards.option} \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} 
+        conda deactivate
+        """
+
+rule perform_simulation:
+    input:
+        afr="data/fastqtl_output/hits_reestimation_primary_Afr.txt",
+        eur="data/fastqtl_output/hits_reestimation_primary_Eur.txt"
+    output:
+        DATA_DIR + "MLE/simulated_data/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/{idx}.txt"
+    params:
+        dir=DATA_DIR + "MLE/simulated_data/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python {SIM_SCRIPT} \
+            --correlation {wildcards.corr} \
+            --afr_error {wildcards.afr_error} \
+            --eur_error {wildcards.eur_error} \
+            --n_snp {wildcards.n_snp} \
+            --n_idv {wildcards.n_idv} \
+            --afr_hits {input.afr} \
+            --eur_hits {input.eur} \
+            --delta {wildcards.delta} \
+            --out {output}
+        conda deactivate
+        """
+
+rule optimize_simulated_data:
+    input:
+        DATA_DIR + "MLE/simulated_data/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/{idx}.txt"
+    output:
+        delta=temp(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/delta_{idx}.txt"),
+        betas=temp(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/betas_{idx}.txt")
+    params:
+        dir=DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python scripts/iterative_parameter_optimization.py --merged {input} \
+            --max_iter {MAX_ITER} \
+            --covariates \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} 
+        conda deactivate
+        """
+
+rule parse_simulation_results:
+    input:
+        expand(DATA_DIR + "MLE/simulated_optimization/delta{{delta}}.afr_error{{afr_error}}.eur_error{{eur_error}}.corr{{corr}}.n_snp{{n_snp}}.n_idv{{n_idv}}/delta_{idx}.txt", idx=[str(i).zfill(3) for i in range(100)])
+    output:
+        DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt"
+    shell:
+        """
+        conda activate pystats
+        python scripts/compute_bias_variance.py --delta_files {input} \
+            --simulated_delta {wildcards.delta} \
+            --out {output}
+        conda deactivate
+        """
+
+rule bootstrap:
+    input:
+        DATA_DIR + "MLE/merged_data.txt"
+    output:
+        delta=temp(DATA_DIR + "MLE/{cov}/bootstrap_{option}_delta_{idx}.txt"),
+        betas=temp(DATA_DIR + "MLE/{cov}/bootstrap_{option}_betas_{idx}.txt")
+    params:
+        cov=lambda wildcards: wildcards.cov.split('.'),
+        dir=DATA_DIR + "MLE/{cov}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python scripts/iterative_parameter_optimization.py --merged {input} \
+            --max_iter {MAX_ITER} \
+            --bootstrap \
+            --covariates {params.cov} \
+            --option {wildcards.option} \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} 
+        conda deactivate
+        """
+
+rule parse_bootstrap:
+    input:
+        expand(DATA_DIR + "MLE/{{cov}}/bootstrap_{{option}}_delta_{idx}.txt", idx=[str(i).zfill(3) for i in range(1000)])
+    output:
+        DATA_DIR + "MLE/{cov}/results_bootstrap_{option}_delta.summary.txt",
+        DATA_DIR + "MLE/{cov}/results_bootstrap_{option}_delta.all_values.txt"
+    params:
+        prefix=DATA_DIR + "MLE/{cov}/results_bootstrap_{option}_delta."
+    shell:
+        """
+        conda activate py36
+        python scripts/parse_bootstrap.py --bootstrap_files {input} --out {params.prefix}
+        conda deactivate
+        """
+
+rule likelihood:
+    input:
+        merged=DATA_DIR + "MLE/merged_data.txt"
+    output:
+        DATA_DIR + "MLE/{cov}/likelihood_vs_delta_{option}.txt"
+    params:
+        cov=lambda wildcards: wildcards.cov.split('.'),
+        dir=DATA_DIR + "MLE/{cov}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python scripts/compute_likelihood.py --merged {input.merged} \
+            --option {wildcards.option} \
+            --covariates {params.cov} \
+            --out {output}
         conda deactivate
         """
 
@@ -509,3 +691,19 @@ rule analyze_expression_sd:
                 --samp_prefix {params.samp} --out {output}
         """
 
+rule correlate_expression:
+    input:
+        merged=DATA_DIR + "MLE/merged_data.txt"
+    output:
+        DATA_DIR + "correlation.expression_regressed.{cov_regress}.txt"
+    params:
+        cov_regress=lambda wildcards: wildcards.cov_regress.split('.')
+    shell:
+        """
+        conda activate pystats
+        python scripts/correlate_expression_genotype_PC.py \
+            --merged {input.merged} \
+            --covariates_to_regress {params.cov_regress} \
+            --out {output}
+        conda deactivate
+        """

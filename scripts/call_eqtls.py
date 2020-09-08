@@ -20,11 +20,11 @@ def parse_expression(exp_path, ind):
     # Parse expression data input and filter for desired sample IDs
     exp = pd.read_csv(exp_path, sep='\t')
     exp = exp[ind]
-    exp = exp - exp.mean(axis=1).iloc[0] # Mean-center expression data
+    # exp = exp - exp.mean(axis=1).iloc[0] # Mean-center expression data
     return(exp)
 
 def parse_covariates(cov_file_path, ind):
-    cov = pd.read_csv(cov_file_path, delimiter='\t', index_col="NWDID").T
+    cov = pd.read_csv(cov_file_path, delimiter='\t', index_col="nwd_id").T
     cov = cov[ind]
     return(cov)
 
@@ -70,10 +70,15 @@ def maf_filter(geno, ind, maf_thresh, ma_samp_thresh):
     geno = geno[(geno.ma_samp >= ma_samp_thresh) & (geno.maf >= maf_thresh)][list(ind) + geno_info_cols]
     return(geno)
 
-def perform_regression(geno, exp, ind):
+def perform_regression(geno, exp, ind, cov=None):
     # Regress genotypes onto expression data
-    def marginal_test(row):
-        model = sm.OLS(exp.iloc[0].astype(float), row[ind].astype(float))
+    def marginal_test(row, exp, cov=None):
+        y = exp.iloc[0].astype(float)
+        x = pd.DataFrame(row.astype(float))
+        x["int"] = 1
+        if cov is not None:
+            x = pd.merge(x, cov.T, left_index=True, right_index=True)
+        model = sm.OLS(y, x)
         results = model.fit()
         effect = results.params[0]
         se = results.bse[0]
@@ -81,7 +86,7 @@ def perform_regression(geno, exp, ind):
         pval = results.pvalues[0]
         return(effect, se, r2, pval)
     res = pd.DataFrame(columns=regression_stat_cols, index=geno.index)
-    res[regression_stat_cols] = geno.apply(marginal_test, axis=1, result_type='expand')
+    res[regression_stat_cols] = geno.apply(lambda x: marginal_test(x, exp, cov), axis=1, result_type='expand')
     return(res)
 
 def perm_adjust_pval(n, min_pval, geno, exp, ind):
@@ -97,12 +102,6 @@ def perm_adjust_pval(n, min_pval, geno, exp, ind):
     null_pval_dist = pd.Series([permutation(geno, exp, ind) for _ in range(n)])
     adj_pval = (null_pval_dist[null_pval_dist < min_pval].count().sum() + 1) / (n + 1)
     return(adj_pval)
-
-def correct_covariates(exp, ind, cov):
-    model = sm.OLS(exp.iloc[0], cov.T)
-    results = model.fit()
-    resid_exp = pd.DataFrame(results.resid).T
-    return(resid_exp)
 
 def remove_nan(geno, exp):
     all_ind = exp.columns
@@ -143,15 +142,15 @@ if __name__ == '__main__':
         os.system(fail_command)
     else: 
         genotypes, expression, ind_IDs = remove_nan(genotypes, expression)
-        if args.covariates is not None:
-            covariates = parse_covariates(args.covariates, ind_IDs)
-            expression = correct_covariates(expression, ind_IDs, covariates)
-
         genotypes = maf_filter(genotypes, ind_IDs, args.maf, args.ma_samples)
         if genotypes.empty: # Checks for the case in which there are no SNPs in the desired MAF window
             os.system(fail_command)
         else:
-            results = perform_regression(genotypes, expression, ind_IDs)
+            if args.covariates is not None:
+                covariates = parse_covariates(args.covariates, ind_IDs)
+                results = perform_regression(genotypes, expression, ind_IDs, covariates)
+            else:
+                results = perform_regression(genotypes, expression, ind_IDs)
             results[geno_info_cols] = genotypes[geno_info_cols]
             results.to_csv(args.out, sep='\t')
 

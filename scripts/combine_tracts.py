@@ -7,15 +7,19 @@ import os
 import numpy as np
 
 def parse_tract_files(tract_dir):
-    files = os.listdir(tract_dir)
-    df = pd.DataFrame(columns=["Chrom", "Start", "Stop", "Info"])
-    for f in files:
-        ind_ID = f.split('.')[2] # WILL NEED TO CHANGE THIS IF YOU UPDATE THE OUTPUT OF LOCAL ANCESTRY PIPELINE
-        hapl = f.split('.')[3] # WILL NEED TO CHANGE THIS IF YOU UPDATE THE OUTPUT OF LOCAL ANCESTRY PIPELINE
-        curr = pd.read_csv(tract_dir + f, delimiter='\t', names=["Chrom", "Genomic_Start", "Genomic_Stop", "Anc", "Start", "Stop"])
-        curr["Info"] = curr.apply(lambda row: ind_ID + "_" + hapl + "_" + row.Anc, axis=1)
-        curr = curr.drop(["Genomic_Start", "Genomic_Stop", "Anc"], axis=1)
-        df = pd.merge(df, curr, how='outer')
+    all_bed_files = []
+    for i in range(1, 23):
+        chr_path = os.path.join(tract_dir, "chr{0}".format(str(i)))
+        chr_files = [os.path.join(chr_path, f) for f in os.listdir(chr_path) if f[-3:] == "bed"]
+        all_bed_files.extend(chr_files)
+    df = pd.DataFrame()
+    for f in all_bed_files:
+        ind_id = f.split('/')[-1].split('.')[0] # WILL NEED TO CHANGE THIS IF YOU UPDATE THE OUTPUT OF LOCAL ANCESTRY PIPELINE
+        hapl = f.split('/')[-1].split('.')[1] # WILL NEED TO CHANGE THIS IF YOU UPDATE THE OUTPUT OF LOCAL ANCESTRY PIPELINE
+        curr = pd.read_csv(f, delimiter='\t', names=["chrom", "genomic_start", "genomic_stop", "anc", "start", "stop"])
+        curr["info"] = curr.apply(lambda row: ind_id + "_" + hapl + "_" + row.anc, axis=1)
+        curr = curr[["chrom", "start", "stop", "info"]]
+        df = pd.concat([df, curr])
     return(df)
 
 if __name__ == "__main__":
