@@ -1,44 +1,99 @@
 import pandas as pd
+import numpy as np
 import argparse
+
+def swap_race(x):
+    if x == "Black":
+        return("White")
+    else:
+        return("Black")
+
+def swap_exam(x):
+    if x == "1":
+        return("5")
+    else:
+        return("1")
+
+def sort_samples(samp_df, curr_props, counts, prev_dict):
+    def update_prop_df(curr_props, counts, id, race, exam, seq_center, sex, prev_dict=None):
+        if prev_dict is not None:
+            if id not in prev_dict[int(exam)]:
+                curr_props[race] = curr_props[race] * counts[race]
+                curr_props[race, exam, seq_center, sex] += 1
+                curr_props[race, swap_exam(exam), seq_center, sex] -= 1
+                curr_props[race] = curr_props[race] / counts[race]
+        else:
+            curr_props[race] = curr_props[race] * counts[race]
+            curr_props[race, exam, seq_center, sex] += 1
+            counts[race] += 1
+            curr_props[race] = curr_props[race] / counts[race]
+    exam_choosing_dict = {1: [], 5: []}
+    samp_df_index = list(pd.concat([samp_df[samp_df.race == "Black"].groupby("nwd_id").size().reset_index(), \
+                                    samp_df[samp_df.race == "White"].groupby("nwd_id").size().reset_index()]).sort_index().nwd_id)
+    for id in samp_df_index:
+        ind = samp_df[samp_df.nwd_id == id]
+        race = ind.race.unique()[0]
+        sex = ind.sex.unique()[0]
+        exam1_center = ind[ind.exam == "1"].seq_center.iloc[0]
+        exam5_center = ind[ind.exam == "5"].seq_center.iloc[0]
+        prop1_curr = curr_props[race, "1", exam1_center, sex]
+        prop1_swap = curr_props[swap_race(race), "1", exam1_center, sex]
+        prop5_curr = curr_props[race, "5", exam1_center, sex]
+        prop5_swap = curr_props[swap_race(race), "5", exam5_center, sex]
+        diff1 = prop1_curr - prop1_swap
+        diff5 = prop5_curr - prop5_swap
+        if diff1 < diff5:
+            exam_choosing_dict[1].append(id)
+            update_prop_df(curr_props, counts, id, race, "1", exam1_center, sex, prev_dict)
+        else:
+            exam_choosing_dict[5].append(id)
+            update_prop_df(curr_props, counts, id, race, "5", exam5_center, sex, prev_dict)
+    return(exam_choosing_dict, curr_props, counts)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--sample_data', help="RNASeq sample metadata file")
-parser.add_argument('--ind_data', help="individual metadata file")
-parser.add_argument('--ancestry', help="short string matching ancestry of individuals to filter for; must match hardcoded anc_map")
-parser.add_argument('--genotyped_individuals', help="list of individual IDs in WGS file")
-parser.add_argument('--rnaseq_individuals', help="list of individual IDs in RNASeq file")
+parser.add_argument('--exclusion_list', help="File with NWDIDs to exclude based on ancestry determination QC")
 parser.add_argument('--output', help="file with TOR ID and NWDID of selected samples")
 args = parser.parse_args()
 
-anc_map = {"Afr": 3, "Eur": 1}
+samples = pd.read_csv(args.sample_data, sep='\t')
 
-samples = pd.read_csv(args.sample_data, delimiter='\t')
-geno_samples = pd.read_csv(args.genotyped_individuals, names=["NWDID"])
-rnaseq_samples = pd.read_csv(args.rnaseq_individuals, names=["TOR_ID"])
-samples = pd.merge(samples, geno_samples, how='inner')
-samples = pd.merge(samples, rnaseq_samples, how='inner')
+# Exclude individuals that failed ancestry determination QC
+with open(args.exclusion_list, 'r') as f:
+    exclusion_list = [x.strip() for x in f.readlines()]
+samples = samples[-samples.nwd_id.isin(exclusion_list)]
 
-# Filter for PBMC RNASeq data
-samples = samples[samples.Specimen == 'PBMC']
+# Recode "Black or African American" in race field as "Black" for simplicity
+samples.loc[samples.race == "Black or African American", "race"] = "Black"
 
-# Remove samples with replicates because we don't know how to deal with them right now
-samples = samples.groupby(['Exam', 'NWDID']).filter(lambda x: len(x) == 1)
+# Select high-quality PBMC RNASeq samples from Black/White genotyped individuals
+samples = samples[(samples.analysis_freeze == True) & (samples.has_genotype == True) & \
+                  (samples.sample_type == "PBMC") & ((samples.race == "Black") | (samples.race == "White"))]
 
-# Select data from visit 5 when possible
-samples_5 = samples[samples.Exam == 5]
+# Create tables to count number of samples per individual
+ind_sample_counts = samples.groupby("nwd_id").size()
+one_samp_index = list(ind_sample_counts[ind_sample_counts == 1].index)
+one_samp = samples.set_index("nwd_id").loc[one_samp_index,:].reset_index()
+one_samp_props = one_samp.groupby(["race", "exam", "seq_center", "sex"]).size().divide(one_samp.groupby(["race"]).size())
+two_samp_index = list(ind_sample_counts[ind_sample_counts == 2].index)
+two_samp = samples.set_index("nwd_id").loc[two_samp_index,:].reset_index()
+two_samp_props = two_samp.groupby(["race", "exam", "seq_center", "sex"]).size().divide(two_samp.groupby(["race"]).size())
 
-# For individuals without data from visit, select data from visit 1
-ID_dif = set(samples.NWDID).difference(samples_5.NWDID)
-where_dif = samples.NWDID.isin(ID_dif)
-samples_1 = samples[where_dif]
+# Use an iterative greedy approach to choose exams for individuals with two samples so as to balance batch/covariate effects between populations
+counts = {"White": one_samp[one_samp.race == "White"].shape[0], "Black": one_samp[one_samp.race == "Black"].shape[0]}
+samp_props = one_samp_props.copy()
+corr_lst = [np.corrcoef(samp_props["Black"], samp_props["White"])[0,1]]
+for i in range(10):
+    if i == 0:
+        answer_dict, samp_props, counts = sort_samples(two_samp, samp_props, counts, None)
+    else:
+        answer_dict, samp_props, counts = sort_samples(two_samp, samp_props, counts, answer_dict)
+    corr_lst.append(np.corrcoef(samp_props["Black"], samp_props["White"])[0,1])
 
-# Merge data from visit 1 and 5
-samples = samples_1.append(samples_5, ignore_index=True)
-
-# Filter for correct ancestry
-indiv_metadata = pd.read_csv(args.ind_data)[["NWDID", "race1c"]].drop_duplicates()
-AfrEur = indiv_metadata[(indiv_metadata["race1c"] == anc_map[args.ancestry])]
-samples = pd.merge(samples, AfrEur, how='inner', on="NWDID")
+chosen_two_samp = pd.concat([two_samp[two_samp.exam == "1"].set_index("nwd_id").loc[answer_dict[1],:].reset_index(), two_samp[two_samp.exam == "5"].set_index("nwd_id").loc[answer_dict[5],:].reset_index()])
+all_samp = pd.concat([chosen_two_samp, one_samp])
+all_samp_props = all_samp.groupby(["race", "seq_center", "exam", "sex"]).size().divide(all_samp.groupby(["race"]).size())
 
 # Write TOR ID and NWDID to file
-samples[['TOR_ID', 'NWDID']].to_csv(args.output, sep='\t', index=False)
+all_samp[all_samp.race == "Black"][['tor_id', 'nwd_id']].to_csv(args.output + "_Afr.txt", sep='\t', index=False)
+all_samp[all_samp.race == "White"][['tor_id', 'nwd_id']].to_csv(args.output + "_Eur.txt", sep='\t', index=False)

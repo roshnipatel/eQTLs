@@ -16,7 +16,7 @@ for f in eqtl_files:
         tmp = pd.read_csv(args.dir + f, sep='\t')
     except pd.errors.EmptyDataError: # Catch error that results from an empty results file (e.g. if there were no SNPs to test)
         continue
-    tmp["Gene"] = f[:-4]
+    tmp["gene"] = f[:-4]
     merged = pd.concat([merged, tmp])
     print("Merged file number {0}".format(i))
     i += 1

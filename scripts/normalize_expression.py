@@ -187,7 +187,7 @@ if __name__=='__main__':
 
     print('Normalizing data', flush=True)
     sample_participant_lookup_s = pd.read_csv(args.sample_participant_lookup, sep='\t', index_col=0, dtype=str, squeeze=True)
-    norm_df = prepare_expression(counts_df, tpm_df, sample_participant_lookup_s, tmm=True, sample_frac_threshold=args.sample_frac_threshold,
+    norm_df = prepare_expression(counts_df, tpm_df, sample_participant_lookup_s, tmm=False, sample_frac_threshold=args.sample_frac_threshold,
         count_threshold=args.count_threshold, tpm_threshold=args.tpm_threshold)
     print('  * {} genes in input tables.'.format(counts_df.shape[0]), flush=True)
     print('  * {} genes remain after thresholding.'.format(norm_df.shape[0]), flush=True)

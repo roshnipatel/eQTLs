@@ -7,8 +7,8 @@ def FDR_threshold(tag_SNPs, colname, fdr):
         pval_threshold = (row.name + 1) / n_SNPs * fdr
         return(not (row[colname] > pval_threshold))
     ordered_SNPs = tag_SNPs.sort_values(by=colname, ignore_index=True)
-    ordered_SNPs["Significant"] = ordered_SNPs.apply(check_significance, axis=1)
-    sig_SNPs = ordered_SNPs[ordered_SNPs.Significant == True]
+    ordered_SNPs["significant"] = ordered_SNPs.apply(check_significance, axis=1)
+    sig_SNPs = ordered_SNPs[ordered_SNPs.significant == True]
     return(sig_SNPs)
 
 if __name__ == '__main__':
@@ -25,10 +25,10 @@ if __name__ == '__main__':
         fdr = float(args.fdr)
         all_SNPs = pd.read_csv(args.merged, sep='\t')
         sig_SNPs = FDR_threshold(all_SNPs, "pval", fdr)
-        sig_SNPs = sig_SNPs.loc[sig_SNPs.groupby("Gene")["pval"].idxmin()] # Select max one SNP per gene
+        sig_SNPs = sig_SNPs.loc[sig_SNPs.groupby("gene")["pval"].idxmin()] # Select max one SNP per gene
         sig_SNPs.to_csv(args.out, index=False, sep='\t')
     elif args.reestimation: # Identify hits in reestimation dataset based on existing ascertainment hits
         all_SNPs = pd.read_csv(args.merged, sep='\t')
         hits = pd.read_csv(args.hits, sep='\t')
-        sig_SNPs = pd.merge(all_SNPs, hits[["Gene", "ID"]])
+        sig_SNPs = pd.merge(all_SNPs, hits[["gene", "ID"]])
         sig_SNPs.to_csv(args.out, index=False, sep='\t')

@@ -4,15 +4,6 @@ import argparse
 import scipy.stats
 from identify_hits import FDR_threshold
 
-# Specify constants
-MEAN_AFR_BETA = 0
-MEAN_EUR_BETA = 0
-N_ASC_IDV = 200
-N_EST_IDV = 150
-N_SIG_SNP = 2800
-FDR_THRESHOLD = .05
-FRAC_NON_CAUSAL = .8
-
 # Specify parameters for the beta distribution used to sample global ancestry
 SHAPE_1 = 7.9
 SHAPE_2 = 2.1
@@ -25,13 +16,13 @@ def create_MAF_dist(afr_hit_path, eur_hit_path):
     hits = np.array(hits[["maf_Afr", "maf_Eur"]])
     return(hits)
 
-def simulate_tag_SNP(n, maf_dist):
+def simulate_tag_SNP(n, maf_dist, params):
     # Simulate betas (effect sizes) as multivariate normal
-    beta_cov_matrix = np.array([[VAR_AFR_BETA, COVARIANCE], [COVARIANCE, VAR_EUR_BETA]])
-    beta_mean = np.array([MEAN_AFR_BETA, MEAN_EUR_BETA])
+    beta_cov_matrix = np.array([[params["var_afr_beta"], params["covariance"]], [params["covariance"], params["var_eur_beta"]]])
+    beta_mean = np.array([params["mean_afr_beta"], params["mean_eur_beta"]])
     tag_SNPs = pd.DataFrame(np.random.multivariate_normal(beta_mean, beta_cov_matrix, n), columns=["Beta_Afr", "Beta_Eur"])
     # Simulate non-causal variants
-    tag_SNPs.loc[0:int(n * FRAC_NON_CAUSAL), ["Beta_Afr", "Beta_Eur"]] = 0
+    tag_SNPs.loc[0:int(n * params["frac_non_causal"]), ["Beta_Afr", "Beta_Eur"]] = 0
     # Simulate MAF by uniformly randomly sampling from empirical distribution
     tag_SNPs["MAF_Afr"], tag_SNPs["MAF_Eur"] = None, None
     tag_SNPs[["MAF_Afr", "MAF_Eur"]] = maf_dist[np.random.randint(maf_dist.shape[0], size=n), :]
@@ -73,19 +64,16 @@ def FDR_threshold(tag_SNPs, colname, fdr):
     sig_SNPs = ordered_SNPs[ordered_SNPs.Significant == True]
     return(sig_SNPs)
 
-def simulate_significant_SNPs(maf_dist):
-    global total_sim_SNPs
-    total_sim_SNPs = 1500
-    tag_SNPs = simulate_tag_SNP(1500, maf_dist)
-    tag_SNPs = simulate_estimation(tag_SNPs, "Asc", N_ASC_IDV, VAR_ERROR)
-    sig_SNPs = FDR_threshold(tag_SNPs, "Pval_Asc", FDR_THRESHOLD)
+def simulate_significant_SNPs(maf_dist, params):
+    tag_SNPs = simulate_tag_SNP(1500, maf_dist, params)
+    tag_SNPs = simulate_estimation(tag_SNPs, "Asc", params["n_asc_idv"], params["var_error_eur"])
+    sig_SNPs = FDR_threshold(tag_SNPs, "Pval_Asc", params["fdr_threshold"])
     # Continue simulating tag SNPs until we obtain the correct number of significant SNPs
-    while sig_SNPs.shape[0] < N_SIG_SNP:
-        new_SNPs = simulate_tag_SNP(100, maf_dist)
-        new_SNPs = simulate_estimation(new_SNPs, "Asc", N_ASC_IDV, VAR_ERROR)
+    while sig_SNPs.shape[0] < params["n_sig_snp"]:
+        new_SNPs = simulate_tag_SNP(100, maf_dist, params)
+        new_SNPs = simulate_estimation(new_SNPs, "Asc", params["n_asc_idv"], params["var_error_eur"])
         tag_SNPs = pd.concat([tag_SNPs, new_SNPs])
-        sig_SNPs = FDR_threshold(tag_SNPs, "Pval_Asc", FDR_THRESHOLD)
-        total_sim_SNPs += 100
+        sig_SNPs = FDR_threshold(tag_SNPs, "Pval_Asc", params["fdr_threshold"])
     return(sig_SNPs)
 
 def simulate_ganc(row):
@@ -106,7 +94,7 @@ def simulate_genotypes(row, SNP_df):
         geno.append(str(geno_Eur) + "-" + str(geno_Afr))
     return(geno)
 
-def simulate_phenotypes(row, SNP_df, race_df, delta):
+def simulate_phenotypes(row, SNP_df, race_df, params):
     pheno = []
     # Simulate phenotypes as betas weighted by genotypes, plus random, normally-distributed noise
     beta_Afr = SNP_df.loc[row.name, "Beta_Afr"]
@@ -119,49 +107,82 @@ def simulate_phenotypes(row, SNP_df, race_df, delta):
         geno_Afr = int(geno[2])
         pheno_Afr = geno_Afr * beta_Afr
         pheno_Eur = geno_Eur * beta_Eur
-        noise = np.random.normal(0, np.sqrt(VAR_ERROR))
-        interaction = delta * (beta_Afr - beta_Eur) * geno_Eur * ind_race
+        if ind_race == 1:
+            noise = np.random.normal(0, np.sqrt(params["var_error_afr"]))
+        else:
+            noise = np.random.normal(0, np.sqrt(params["var_error_eur"]))
+        interaction = params["delta"] * (beta_Afr - beta_Eur) * geno_Eur * ind_race
         pheno.append(pheno_Afr + pheno_Eur + noise + interaction)
     return(pheno)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--var_afr', help="specified variance of African tag SNP effects")
-    parser.add_argument('--var_eur', help="specified variance of European tag SNP effects")
-    parser.add_argument('--covariance', help="specified covariance between African and European tag SNP effects")
-    parser.add_argument('--error', help="specified error term")
-    parser.add_argument('--delta', help="specified delta term")
+    parser.add_argument('--var_afr', help="specified variance of African tag SNP effects", default=None)
+    parser.add_argument('--var_eur', help="specified variance of European tag SNP effects", default=None)
+    parser.add_argument('--correlation', help="specified correlation between African and European tag SNP effects", default=None)
+    parser.add_argument('--n_snp', help="specified number of significant SNPs to simulate", default=None)
+    parser.add_argument('--n_idv', help="comma-delimited number of ascertainment and reestimation individuals to simulate", default=None)
+    parser.add_argument('--error_afr', help="specified error term", default=None)
+    parser.add_argument('--error_eur', help="specified error term", default=None)
+    parser.add_argument('--delta', help="specified delta term", default=None)
     parser.add_argument('--afr_hits', help="African hits")
     parser.add_argument('--eur_hits', help="European hits")
     parser.add_argument('--out', help="output file")
     args = parser.parse_args()
 
-    # Parse constants
-    global COVARIANCE
-    COVARIANCE = float(args.covariance)
-    global VAR_ERROR
-    VAR_ERROR = float(args.error)
-    delta = float(args.delta)
-    global VAR_EUR_BETA
-    global VAR_AFR_BETA
-    VAR_EUR_BETA = float(args.var_eur)
-    VAR_AFR_BETA = float(args.var_afr)
+    # Specify constants
+    params = {"mean_afr_beta": 0, "mean_eur_beta": 0, "fdr_threshold": .05, "frac_non_causal": 0.8}
+    if args.var_afr:
+        params["var_afr_beta"] = float(args.var_afr)
+    else:
+        params["var_afr_beta"] = 0.17
+    if args.var_eur:
+        params["var_eur_beta"] = float(args.var_eur)
+    else:
+        params["var_eur_beta"] = 0.25
+    if args.correlation:
+        params["covariance"] = float(args.correlation) * ((params["var_afr_beta"] * params["var_eur_beta"]) ** 0.5)
+    else:
+        params["covariance"] = 0.17
+    if args.n_snp:
+        params["n_sig_snp"] = int(args.n_snp)
+    else:
+        params["n_sig_snp"] = 3200
+    if args.n_idv:
+        n_idv = args.n_idv.strip().split('_')
+        params["n_asc_idv"] = int(n_idv[0])
+        params["n_est_idv"] = int(n_idv[1])
+    else:
+        params["n_asc_idv"] = 200
+        params["n_est_idv"] = 150
+    if args.error_afr:
+        params["var_error_afr"] = float(args.error_afr)
+    else:
+        params["var_error_afr"] = 0.15
+    if args.error_eur:
+        params["var_error_eur"] = float(args.error_eur)
+    else:
+        params["var_error_eur"] = 0.15
+    if args.delta:
+        params["delta"] = float(args.delta)
+    else:
+        params["delta"] = 0
 
     # Create MAF distribution from input data
     maf_dist = create_MAF_dist(args.afr_hits, args.eur_hits)
 
     # Simulate African and European betas for significant SNPs, with ascertainment performed in Europeans
-    sig_SNPs = simulate_significant_SNPs(maf_dist)
-    sig_SNPs = simulate_estimation(sig_SNPs, "Eur", N_EST_IDV, VAR_ERROR)
-    sig_SNPs = simulate_estimation(sig_SNPs, "Afr", N_EST_IDV, VAR_ERROR)
+    sig_SNPs = simulate_significant_SNPs(maf_dist, params)
+    sig_SNPs = simulate_estimation(sig_SNPs, "Eur", params["n_est_idv"], params["var_error_eur"])
+    sig_SNPs = simulate_estimation(sig_SNPs, "Afr", params["n_est_idv"], params["var_error_afr"])
     n_sig_SNPs = sig_SNPs.shape[0]
 
     # Simulate local ancestry, genotypes, and phenotypes for each of the significant SNPs/genes
-    race = pd.DataFrame([anc for anc in [0, 1] for _ in range(N_EST_IDV)], columns=["Race_AA"])
+    race = pd.DataFrame([anc for anc in [0, 1] for _ in range(params["n_est_idv"])], columns=["Race_AA"])
     ganc = pd.DataFrame(race.apply(simulate_ganc, axis=1))
     lanc = ganc.apply(lambda x: simulate_lanc(x, n_sig_SNPs), axis=1, result_type='expand').T
     geno = lanc.apply(lambda x: simulate_genotypes(x, sig_SNPs), axis=1, result_type='expand')
-    pheno = geno.apply(lambda x: simulate_phenotypes(x, sig_SNPs, race, delta), axis=1, result_type='expand')
+    pheno = geno.apply(lambda x: simulate_phenotypes(x, sig_SNPs, race, params), axis=1, result_type='expand')
 
     # Reshape data into the right structure
     geno = geno.stack().reset_index().rename({"level_0": "Gene", "level_1": "Ind", 0: "Genotype"}, axis=1)

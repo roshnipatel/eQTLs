@@ -26,8 +26,11 @@ READS = "TOPMed_MESA_RNAseq_Pilot_expression_data/TOPMed_MESA_RNAseq_Pilot_RNASe
 TPM = "TOPMed_MESA_RNAseq_Pilot_expression_data/TOPMed_MESA_RNAseq_Pilot_RNASeQCv1.1.9.gene_tpm.gct.gz"
 
 # Paths to metadata files
-RNASEQ_METADATA = "MESA_TOPMed_RNASeqSamples_11022018.txt"
-IND_METADATA = "MESA_sample_info.csv"
+RNASEQ_METADATA = "metadata-TOPMed_MESA_RNAseq_2973samples_metadata.tsv"
+
+# Paths to files from local and global ancestry determination
+EXCLUSION_FILE = "data/individuals_to_exclude.txt" # File of individual IDs that failed QC
+BED_DIR = "data/bed/" # Directory of local ancestry tracts
 
 
 
@@ -43,11 +46,12 @@ TRACT_SCRIPT = "scripts/combine_tracts.py"
 GENE_BED_SCRIPT = "scripts/make_genes_bed.py"
 PARTITION_SCRIPT = "scripts/partition_samples.py"
 EQTL_SCRIPT = "scripts/call_eqtls.py"
-HITS_SCRIPT = "scripts/identify_hits.R"
+ID_HITS_SCRIPT = "scripts/identify_hits.py"
 MERGE_GENES = "scripts/merge_gene_list.py"
 MERGE_RES = "scripts/merge_eqtl_calls.py"
-GRP_PREP_SCRIPT = "scripts/prep_grp_exp_PC.py"
+PCA_SCRIPT = "scripts/generate_PC.py"
 SD_SCRIPT = "scripts/std_dev_comparison.R"
+SIM_SCRIPT = "scripts/simulation.py"
 
 
 
@@ -68,3 +72,9 @@ PERM = "1000 1000"
 
 # Number of iterations for likelihood EM
 MAX_ITER = 300
+
+# FDR threshold used
+FDR = .05
+
+# Chromosomes
+CHROMS = [str(i) for i in range(1, 23)]

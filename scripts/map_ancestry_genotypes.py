@@ -5,8 +5,8 @@ from call_eqtls import parse_genotypes
 
 def find_match(x, df):
     for idx, row in df.iterrows():
-        if row.Stop > x:
-            if row.Start < x:
+        if row.stop > x:
+            if row.start < x:
                 return(idx)
             return('before')
     return('after')

@@ -5,7 +5,7 @@ import argparse
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--bootstrap_files', nargs='+')
-    parser.add_argument('--out', help='output file')
+    parser.add_argument('--out', help='prefix for output files')
     args = parser.parse_args()
 
     delta_vals = []
@@ -17,6 +17,8 @@ if __name__ == '__main__':
     lower = np.quantile(delta_vals, .025)
     upper = np.quantile(delta_vals, .975)
     
-    with open(args.out, 'w') as f:
+    with open(args.out + "summary.txt", 'w') as f:
         f.write('.025 quantile: {0}\n'.format(lower))
         f.write('.975 quantile: {0}\n'.format(upper))
+
+    np.savetxt(args.out + "all_values.txt", delta_vals, delimiter='\n')

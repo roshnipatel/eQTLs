@@ -24,7 +24,7 @@ def parse_expression(exp_path, ind):
     return(exp)
 
 def parse_covariates(cov_file_path, ind):
-    cov = pd.read_csv(cov_file_path, delimiter='\t', index_col="NWDID").T
+    cov = pd.read_csv(cov_file_path, delimiter='\t', index_col="nwd_id").T
     cov = cov[ind]
     return(cov)
 

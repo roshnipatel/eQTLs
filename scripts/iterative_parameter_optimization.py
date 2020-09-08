@@ -14,10 +14,10 @@ def document_params(delta_file, betas_file, delta, betas):
 
 def optimize_delta(df, covariates):
     """Optimize delta in likelihood model using quadratic programming solver."""
-    b = np.array(df["Expression"] - df["Genotype_Afr"] * df["Beta_Afr"] - df["Genotype_Eur"] * df["Beta_Eur"])
+    b = np.array(df["expression"] - df["genotype_Afr"] * df["beta_Afr"] - df["genotype_Eur"] * df["beta_Eur"])
     for cov in covariates:
-        b = b - df["Int_" + cov] * df[cov]
-    A = np.array((df["Beta_Afr"] - df["Beta_Eur"]) * df["Genotype_Eur"] * df["Race_AA"])
+        b = b - df["int_" + cov] * df[cov]
+    A = np.array((df["beta_Afr"] - df["beta_Eur"]) * df["genotype_Eur"] * df["race"])
     h = np.array([1, 0])
     P = np.matrix(np.dot(A, A))
     q = np.matrix(np.dot(A, -b))
@@ -30,24 +30,24 @@ def optimize_delta(df, covariates):
 
 def optimize_betas(group, covariates):
     """Optimize betas/effects in likelihood model using ordinary least squares linear regression."""
-    Beta_Afr = group["Genotype_Afr"] + group["Delta"] * group["Genotype_Eur"] * group["Race_AA"]
-    Beta_Eur = group["Genotype_Eur"] - group["Delta"] * group["Genotype_Eur"] * group["Race_AA"]
-    Y = group["Expression"]
-    df_dict = {"Y": Y, "Beta_Afr": Beta_Afr, "Beta_Eur": Beta_Eur}
+    beta_Afr = group["genotype_Afr"] + group["delta"] * group["genotype_Eur"] * group["race"]
+    beta_Eur = group["genotype_Eur"] - group["delta"] * group["genotype_Eur"] * group["race"]
+    Y = group["expression"]
+    df_dict = {"Y": Y, "beta_Afr": beta_Afr, "beta_Eur": beta_Eur}
     for cov in covariates:
-        df_dict["Int_" + cov] = group[cov]
+        df_dict["int_" + cov] = group[cov]
     df = pd.DataFrame(df_dict)
-    result = sm.OLS(df["Y"], df[["Beta_Afr", "Beta_Eur"] + ["Int_" + cov for cov in covariates]]).fit().params
+    result = sm.OLS(df["Y"], df[["beta_Afr", "beta_Eur"] + ["int_" + cov for cov in covariates]]).fit().params
     return(result)
 
 def update_params(df, covariates, betas=None, delta=None):
     """Update current parameters in provided dataframe."""
     if delta is not None:
-        df["Delta"] = delta
+        df["delta"] = delta
     elif betas is not None:
-        col_drop_lst = ["Beta_Afr", "Beta_Eur"] + ["Int_" + cov for cov in covariates]
+        col_drop_lst = ["beta_Afr", "beta_Eur"] + ["int_" + cov for cov in covariates]
         df = df.drop(columns=col_drop_lst)
-        df = pd.merge(df, betas, left_on="Gene", right_index=True)
+        df = pd.merge(df, betas, left_on="gene", right_index=True)
     return(df)
 
 def neg_control(group):
@@ -67,8 +67,8 @@ def neg_control(group):
     with open("data/fastqtl_sample_input/reestimation_validation/Eur/" + gene + ".txt", 'r') as f:
         for idv in f:
             val_idv.append(idv.strip())
-    group_subset = group[(group.NWDID.isin(Afr_idv)) | (group.NWDID.isin(Eur_idv)) | (group.NWDID.isin(val_idv))]
-    group_subset["Race_AA"] = group_subset.apply(lambda row: 1 if row.NWDID in val_idv else row.Race_AA, axis=1, result_type='expand')
+    group_subset = group[(group.nwd_id.isin(Afr_idv)) | (group.nwd_id.isin(Eur_idv)) | (group.nwd_id.isin(val_idv))]
+    group_subset["race"] = group_subset.apply(lambda row: 1 if row.nwd_id in val_idv else row.race, axis=1, result_type='expand')
     return(group_subset)
 
 def drop_asc(group):
@@ -80,7 +80,7 @@ def drop_asc(group):
     with open("data/fastqtl_sample_input/ascertainment/Eur/" + gene + ".txt", 'r') as f:
         for idv in f:
             asc_idv.append(idv.strip())
-    return(group[-group.NWDID.isin(asc_idv)])
+    return(group[-group.nwd_id.isin(asc_idv)])
 
 def bootstrap_data(all_df):
     """Generate one random sample (with replacement) from the input dataframe. Size of sample is 
@@ -96,7 +96,7 @@ def bootstrap_data(all_df):
         for key in keys_to_drop:
             del d[key]
 
-    gene_list = all_df["Gene"].unique()
+    gene_list = all_df["gene"].unique()
     n_genes = len(gene_list)
     bootstrap_list = np.random.choice(gene_list, n_genes, replace=True)
     bootstrap_dict = {}
@@ -105,7 +105,7 @@ def bootstrap_data(all_df):
 
     bootstrap_df = pd.DataFrame()
     while bootstrap_dict:
-        tmp_df = all_df[all_df["Gene"].isin(bootstrap_dict.keys())]
+        tmp_df = all_df[all_df["gene"].isin(bootstrap_dict.keys())]
         bootstrap_df = pd.concat([bootstrap_df, tmp_df])
         decrement(bootstrap_dict)
 
@@ -124,25 +124,26 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     merged_data = pd.read_csv(args.merged, sep='\t')
+    merged_data = merged_data[args.covariates + ["genotype_Afr", "genotype_Eur", "expression", "nwd_id", "gene", "race"]]
     
     # Initialize empty parameter columns
-    merged_data["Beta_Afr"] = None
-    merged_data["Beta_Eur"] = None
+    merged_data["beta_Afr"] = None
+    merged_data["beta_Eur"] = None
     for cov in args.covariates:
-        merged_data["Int_" + cov] = None
+        merged_data["int_" + cov] = None
 
     # Deal with command line arguments/options
     if args.option == "neg_control":
-        merged_data = merged_data.groupby("Gene").apply(neg_control).reset_index(drop=True)
+        merged_data = merged_data.groupby("gene").apply(neg_control).reset_index(drop=True)
     if args.option == "drop_asc":
-        merged_data = merged_data.groupby("Gene").apply(drop_asc).reset_index(drop=True)
+        merged_data = merged_data.groupby("gene").apply(drop_asc).reset_index(drop=True)
     if args.bootstrap:
         merged_data = bootstrap_data(merged_data)
 
     if args.delta is not None: # Optimize betas for a user-specified delta + write to file
         curr_delta = args.delta
         merged_data = update_params(merged_data, args.covariates, delta=curr_delta)
-        curr_betas = merged_data.groupby("Gene").apply(lambda group: optimize_betas(group, args.covariates))
+        curr_betas = merged_data.groupby("gene").apply(lambda group: optimize_betas(group, args.covariates))
         merged_data = update_params(merged_data, args.covariates, betas=curr_betas)
         document_params(args.delta_out, args.betas_out, curr_delta, curr_betas)
     else: # Iteratively optimize delta + betas
@@ -156,6 +157,6 @@ if __name__ == '__main__':
                 break
             merged_data = update_params(merged_data, args.covariates, delta=curr_delta)
             prev_delta = curr_delta
-            curr_betas = merged_data.groupby("Gene").apply(lambda group: optimize_betas(group, args.covariates))
+            curr_betas = merged_data.groupby("gene").apply(lambda group: optimize_betas(group, args.covariates))
             merged_data = update_params(merged_data, args.covariates, betas=curr_betas)
             document_params(args.delta_out, args.betas_out, curr_delta, curr_betas)
