@@ -111,6 +111,11 @@
         "time"      : "15:00",
         "memory"    : 5000
     },
+    "std_dev_analysis":
+    {
+        "time"      : "15:00",
+        "memory"    : 5000
+    },
     "optimize_simulated_data":
     {
         "time"      : "15:00",
@@ -119,7 +124,12 @@
     "correlate_expression":
     {
         "time"      : "30:00",
-        "memory"    : 2000
+        "memory"    : 10000
+    },
+    "correlate_expression_noreg":
+    {
+        "time"      : "30:00",
+        "memory"    : 10000
     },
     "optimize":
     {
