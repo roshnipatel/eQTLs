@@ -7,21 +7,19 @@ shell.prefix("source ~/.bashrc; ")
 rule all:
     input:
         ### For eQTL calling
-        DATA_DIR + "fastqtl_output/randsamp_merged_ascertainment_Eur.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_Eur.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_validation_Eur.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_validation_Afr.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_het.txt",
-        DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_Afr.txt",
-        DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_reestimation_validation_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_reestimation_validation_Afr.txt",
-        DATA_DIR + "fastqtl_output/hits_reestimation_primary_Eur.txt",
-        DATA_DIR + "fastqtl_output/hits_reestimation_primary_het.txt",
-        DATA_DIR + "fastqtl_output/hits_reestimation_primary_Afr.txt"
-        
+        # DATA_DIR + "fastqtl_output/randsamp_merged_ascertainment_Afr.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_Eur.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_validation_Eur.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_het.txt",
+        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_Afr.txt",
+        # DATA_DIR + "fastqtl_output/hits_ascertainment_Afr.txt",
+        # DATA_DIR + "fastqtl_output/hits_reestimation_validation_Eur.txt",
+        # DATA_DIR + "fastqtl_output/hits_reestimation_primary_Eur.txt",
+        # DATA_DIR + "fastqtl_output/hits_reestimation_primary_het.txt",
+        # DATA_DIR + "fastqtl_output/hits_reestimation_primary_Afr.txt"
+        #
         ### For likelihood model stuff:
-        # DATA_DIR + "MLE/merged_data.txt",
+        DATA_DIR + "MLE/merged_data.txt",
         expand(DATA_DIR + "MLE/{cov}/optimize_{option}_{param}.txt", cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"], option=["neg_control", "drop_asc"], param=["delta", "betas"]),
         expand(DATA_DIR + "MLE/{cov}/results_bootstrap_{option}_delta.summary.txt", cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"], option=['neg_control', 'drop_asc']),
         expand(DATA_DIR + "MLE/{cov}/likelihood_vs_delta_{option}.txt", option=["neg_control", "drop_asc"], cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"])
@@ -31,9 +29,7 @@ rule all:
         # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.8], n_snp=[3200], n_idv=["200_150", "350_150", "500_300"])
         #
         ### For covariate/PC stuff:
-        DATA_DIR + "correlation.expression_regressed.global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1.txt",
-        DATA_DIR + "correlation.expression.txt"
-        DATA_DIR + "variances.txt"
+        # DATA_DIR + "correlation.expression_regressed.global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -306,19 +302,17 @@ checkpoint partition_samples:
         output_dir=DATA_DIR + "fastqtl_sample_input"
     shell:
         """
-        mkdir -p {params.output_dir}/ascertainment/Eur
+        mkdir -p {params.output_dir}/ascertainment/Afr
         mkdir -p {params.output_dir}/reestimation_primary/Afr
         mkdir -p {params.output_dir}/reestimation_primary/het
         mkdir -p {params.output_dir}/reestimation_primary/Eur
         mkdir -p {params.output_dir}/reestimation_validation/Eur
-        mkdir -p {params.output_dir}/reestimation_validation/Afr
         conda activate py36
-        python {PARTITION_SCRIPT} \
+        python scripts/partition_samples_AA_ascertainment.py \
             --intersect {input.intersect} \
             --afr_samples {input.afr_samples} \
             --eur_samples {input.eur_samples} \
             --genes {input.genes} \
-            --afr_validation_run \
             --out {params.output_dir}
         conda deactivate
         """
@@ -389,9 +383,9 @@ rule call_eQTLs:
 
 def merge_asc_input(wildcards):
     checkpoint_output = checkpoints.partition_samples.get(**wildcards).output[0]
-    return expand(DATA_DIR + "fastqtl_output/ascertainment/Eur/{gene}.txt",
+    return expand(DATA_DIR + "fastqtl_output/ascertainment/Afr/{gene}.txt",
                   gene=glob_wildcards(os.path.join(checkpoint_output, "ascertainment", 
-                                      "Eur", "{gene}.txt")).gene)
+                                      "Afr", "{gene}.txt")).gene)
 
 def merge_est_input(wildcards):
     checkpoint_output = checkpoints.identify_hits.get(**wildcards).output[0]
@@ -404,9 +398,9 @@ rule merge_ascertainment:
     input:
         merge_asc_input
     output:
-        DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt"
+        DATA_DIR + "fastqtl_output/merged_ascertainment_Afr.txt"
     params:
-        dir=DATA_DIR + "fastqtl_output/ascertainment/Eur/"
+        dir=DATA_DIR + "fastqtl_output/ascertainment/Afr/"
     shell:
         """
         conda activate py36
@@ -430,9 +424,9 @@ rule merge_reestimation:
 
 checkpoint identify_hits:
     input:
-        asc=DATA_DIR + "fastqtl_output/merged_ascertainment_Eur.txt" 
+        asc=DATA_DIR + "fastqtl_output/merged_ascertainment_Afr.txt" 
     output:
-        DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt"
+        DATA_DIR + "fastqtl_output/hits_ascertainment_Afr.txt"
     params:
         DATA_DIR + "fastqtl_output/"
     shell:
@@ -449,7 +443,7 @@ checkpoint identify_hits:
 rule extract_hits:
     input:
         merged=DATA_DIR + "fastqtl_output/merged_reestimation_{type}_{anc}.txt",
-        hits=DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt"
+        hits=DATA_DIR + "fastqtl_output/hits_ascertainment_Afr.txt"
     output:
         DATA_DIR + "fastqtl_output/hits_reestimation_{type}_{anc}.txt"
     params:
@@ -467,9 +461,10 @@ rule extract_hits:
 
 ############################# LIKELIHOOD MODEL ################################
 
+# TODO: turn this into checkpoint
 def hit_genes():
-    afr_df = pd.read_csv("data/fastqtl_output/hits_reestimation_primary_Afr.txt", sep='\t')
-    eur_df = pd.read_csv("data/fastqtl_output/hits_reestimation_primary_Eur.txt", sep='\t')
+    afr_df = pd.read_csv("results/QTL_calling/v4.1/hits/hits_reestimation_primary_Afr.txt", sep='\t')
+    eur_df = pd.read_csv("results/QTL_calling/v4.1/hits/hits_reestimation_primary_Eur.txt", sep='\t')
     afr_genes = set(afr_df["gene"])
     eur_genes = set(eur_df["gene"])
     genes = list(afr_genes.intersection(eur_genes))
@@ -501,6 +496,32 @@ rule merge_data:
         conda deactivate
         """
 
+rule merge_swapped_data:
+    input:
+        afr_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Afr"),
+        afr_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Afr"),
+        eur_geno=expand(rules.subset_geno.output, gene=hit_genes(), anc="Eur"),
+        eur_pheno=expand(rules.subset_pheno.output, gene=hit_genes(), anc="Eur"),
+        tracts=rules.make_anc_bed.output,
+        afr_hits="results/QTL_calling/v3.1/hits/hits_estimation_Afr.txt",
+        eur_hits="results/QTL_calling/v3.1/hits/hits_estimation_Eur.txt"
+    output:
+        merged=DATA_DIR + "MLE/merged_data_n5_swapped.txt"
+    params:
+        out_dir=DATA_DIR + "MLE/"
+    shell:
+        """
+        mkdir -p {params.out_dir}
+        conda activate pystats
+        python scripts/merge_eQTL_data.py --tracts {input.tracts} \
+            --afr_hits {input.afr_hits} \
+            --eur_hits {input.eur_hits} \
+            --n_genes 5 \
+            --swap_ref_alt \
+            --out {output.merged}
+        conda deactivate
+        """
+
 rule optimize:
     input:
         DATA_DIR + "MLE/merged_data.txt"
@@ -514,7 +535,7 @@ rule optimize:
         """
         mkdir -p {params.dir}
         conda activate pystats
-        python scripts/iterative_parameter_optimization.py --merged {input} \
+        python scripts/iterative_parameter_optimization_AA_ascertainment.py --merged {input} \
             --max_iter {MAX_ITER} \
             --covariates {params.cov} \
             --option {wildcards.option} \
@@ -560,7 +581,7 @@ rule optimize_simulated_data:
         """
         mkdir -p {params.dir}
         conda activate pystats
-        python scripts/iterative_parameter_optimization.py --merged {input} \
+        python scripts/iterative_parameter_optimization_AA_ascertainment.py --merged {input} \
             --max_iter {MAX_ITER} \
             --covariates \
             --betas_out {output.betas} \
@@ -595,7 +616,7 @@ rule bootstrap:
         """
         mkdir -p {params.dir}
         conda activate pystats
-        python scripts/iterative_parameter_optimization.py --merged {input} \
+        python scripts/iterative_parameter_optimization_AA_ascertainment.py --merged {input} \
             --max_iter {MAX_ITER} \
             --bootstrap \
             --covariates {params.cov} \
@@ -632,7 +653,7 @@ rule likelihood:
         """
         mkdir -p {params.dir}
         conda activate pystats
-        python scripts/compute_likelihood.py --merged {input.merged} \
+        python scripts/compute_likelihood_AA_ascertainment.py --merged {input.merged} \
             --option {wildcards.option} \
             --covariates {params.cov} \
             --out {output}
@@ -651,6 +672,22 @@ rule sample_merged:
         cat <(head -n 1 {input}) <(tail -n +2 {input} | shuf -n 100000) > {output}
         """
 
+rule analyze_expression_sd:
+    input:
+        afr=DATA_DIR + "mesa.Afr.expression.bed.gz",
+        eur=DATA_DIR + "mesa.Eur.expression.bed.gz"
+    params:
+        samp=DATA_DIR + "fastqtl_sample_input/estimation/"
+    output:
+        DATA_DIR + "expression_sd.txt"
+    shell:
+        """
+        module reset
+        module load R
+        Rscript --vanilla {SD_SCRIPT} --afr {input.afr} --eur {input.eur} \
+                --samp_prefix {params.samp} --out {output}
+        """
+
 rule correlate_expression:
     input:
         merged=DATA_DIR + "MLE/merged_data.txt"
@@ -667,32 +704,3 @@ rule correlate_expression:
             --out {output}
         conda deactivate
         """
-
-rule correlate_expression_noreg:
-    input:
-        merged=DATA_DIR + "MLE/merged_data.txt"
-    output:
-        DATA_DIR + "correlation.expression.txt"
-    shell:
-        """
-        conda activate pystats
-        python scripts/correlate_expression_genotype_PC.py \
-            --merged {input.merged} \
-            --out {output}
-        conda deactivate
-        """
-
-rule std_dev_analysis:
-    input:
-        rules.select_samples.output,
-        DATA_DIR + READS,
-        expand(rules.normalize_expression.output.bed, anc=["Afr", "Eur"])
-    output:
-        DATA_DIR + "variances.txt"
-    shell:
-        """
-        conda activate pystats
-        python scripts/std_dev_comparison.py
-        conda deactivate
-        """
-

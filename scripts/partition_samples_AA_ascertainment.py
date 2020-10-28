@@ -41,15 +41,17 @@ hom_Afr_tracts = Afr_tracts[Afr_tracts > 1]
 hom_Afr_tracts = hom_Afr_tracts.reset_index(name='counts')
 hom_Afr_tracts = hom_Afr_tracts.drop(['counts'], axis=1)
 
-if args.afr_validation_run:
-    for gene, df in hom_Afr_tracts.groupby("gene_id"):
-        df.sample(n = 50).to_csv(args.out + "/reestimation_validation/Afr/" + gene + ".txt", header=False, index=False, columns=["nwd_id"])
-
-# Write Afr-Am sample IDs to file and store sample sizes for each gene
+# Partition Afr individuals into ascertainment and estimation set, such that size of 
+# Afr ascertainment set is 2/3 of all individuals homozygous for Afr ancestry.
 gene_counts = {}
 for gene, df in hom_Afr_tracts.groupby("gene_id"):
-    gene_counts[gene] = df.shape[0]
-    df.to_csv(args.out + "/reestimation_primary/Afr/" + gene + ".txt", header=False, index=False, columns=["nwd_id"])  
+    IDs = df["nwd_id"]
+    n_asc = int(IDs.shape[0] * 2 / 3)
+    asc = IDs.sample(n = n_asc)
+    est = IDs.drop(asc.index)
+    gene_counts[gene] = est.shape[0]
+    est.to_csv(args.out + "/reestimation_primary/Afr/" + gene + ".txt", header=False, index=False)
+    asc.to_csv(args.out + "/ascertainment/Afr/" + gene + ".txt", header=False, index=False)
 
 # Identify Afr-Am individuals that have one chromosome with African ancestry
 # overlapping gene's cis window and one chromosome with European ancestry 
@@ -66,13 +68,8 @@ for gene, df in anc_het_tracts.groupby("gene_id"):
 
 # Partition Eur individuals into ascertainment and estimation set, such that size of 
 # Eur estimation set matches size of Afr-Am estimation set.
-Eur_IDs = eur_samples["nwd_id"]
-
+est = eur_samples["nwd_id"]
 for gene, count in gene_counts.items():
-    est = Eur_IDs.sample(n = count)
-    rest = Eur_IDs.drop(est.index)
-    val = rest.sample(n = 50)
-    asc = rest.drop(val.index)
+    val = est.sample(n = count)
     val.to_csv(args.out + "/reestimation_validation/Eur/" + gene + ".txt", header=False, index=False)
     est.to_csv(args.out + "/reestimation_primary/Eur/" + gene + ".txt", header=False, index=False)
-    asc.to_csv(args.out + "/ascertainment/Eur/" + gene + ".txt", header=False, index=False)
