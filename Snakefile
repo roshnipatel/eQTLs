@@ -7,32 +7,32 @@ shell.prefix("source ~/.bashrc; ")
 rule all:
     input:
         ### For eQTL calling
-        # DATA_DIR + "fastqtl_output/randsamp_merged_ascertainment_Eur.txt",
-        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_Eur.txt",
-        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_validation_Eur.txt",
-        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_validation_Afr.txt",
-        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_het.txt",
-        # DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_Afr.txt",
-        # DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt",
-        # DATA_DIR + "fastqtl_output/hits_reestimation_validation_Eur.txt",
-        # DATA_DIR + "fastqtl_output/hits_reestimation_validation_Afr.txt",
-        # DATA_DIR + "fastqtl_output/hits_reestimation_primary_Eur.txt",
-        # DATA_DIR + "fastqtl_output/hits_reestimation_primary_het.txt",
-        # DATA_DIR + "fastqtl_output/hits_reestimation_primary_Afr.txt"
-        #
+        DATA_DIR + "fastqtl_output/randsamp_merged_ascertainment_Eur.txt",
+        DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_Eur.txt",
+        DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_validation_Eur.txt",
+        DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_validation_Afr.txt",
+        DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_het.txt",
+        DATA_DIR + "fastqtl_output/randsamp_merged_reestimation_primary_Afr.txt",
+        DATA_DIR + "fastqtl_output/hits_ascertainment_Eur.txt",
+        DATA_DIR + "fastqtl_output/hits_reestimation_validation_Eur.txt",
+        DATA_DIR + "fastqtl_output/hits_reestimation_validation_Afr.txt",
+        DATA_DIR + "fastqtl_output/hits_reestimation_primary_Eur.txt",
+        DATA_DIR + "fastqtl_output/hits_reestimation_primary_het.txt",
+        DATA_DIR + "fastqtl_output/hits_reestimation_primary_Afr.txt"
+        
         ### For likelihood model stuff:
         # DATA_DIR + "MLE/merged_data.txt",
-        # expand(DATA_DIR + "MLE/{cov}/optimize_{option}_{param}.txt", cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"], option=["neg_control", "drop_asc"], param=["delta", "betas"]),
-        # expand(DATA_DIR + "MLE/{cov}/results_bootstrap_{option}_delta.summary.txt", cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"], option=['neg_control', 'drop_asc']),
-        # expand(DATA_DIR + "MLE/{cov}/likelihood_vs_delta_{option}.txt", option=["neg_control", "drop_asc"], cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"])
+        expand(DATA_DIR + "MLE/{cov}/optimize_{option}_{param}.txt", cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"], option=["neg_control", "drop_asc"], param=["delta", "betas"]),
+        expand(DATA_DIR + "MLE/{cov}/results_bootstrap_{option}_delta.summary.txt", cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"], option=['neg_control', 'drop_asc']),
+        expand(DATA_DIR + "MLE/{cov}/likelihood_vs_delta_{option}.txt", option=["neg_control", "drop_asc"], cov=["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"])
         # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.13, 0.17, 0.30], corr=[0.8], n_snp=[3200], n_idv=["200_150"]),
         # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.5, 0.8, 0.9], n_snp=[3200], n_idv=["200_150"]),
         # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.8], n_snp=[1000, 3200, 6000], n_idv=["200_150"]),
         # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.8], n_snp=[3200], n_idv=["200_150", "350_150", "500_300"])
         #
         ### For covariate/PC stuff:
-        # DATA_DIR + "correlation.expression_regressed.global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1.txt",
-        # DATA_DIR + "correlation.expression.txt"
+        DATA_DIR + "correlation.expression_regressed.global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1.txt",
+        DATA_DIR + "correlation.expression.txt"
         DATA_DIR + "variances.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
