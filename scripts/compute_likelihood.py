@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 from iterative_parameter_optimization import update_params
 from iterative_parameter_optimization import optimize_betas
-from iterative_parameter_optimization import drop_asc, neg_control
+from iterative_parameter_optimization import remove_asc, neg_control
 
 def likelihood(df, delta, covariates):
     """Returns log-likelihood of data based on the given value of delta."""
@@ -22,7 +22,8 @@ def likelihood(df, delta, covariates):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--merged')
-    parser.add_argument('--option')
+    parser.add_argument('--partition')
+    parser.add_argument('--group')
     parser.add_argument('--betas', default=None)
     parser.add_argument('--delta', default=None)
     parser.add_argument('--covariates', nargs='+')
@@ -31,11 +32,13 @@ if __name__ == '__main__':
 
     merged_data = pd.read_csv(args.merged, sep='\t')
 
+    # Remove ascertainment individuals to avoid biasing parameter estimation
+    partition_matrix = pd.read_csv(args.partition, sep='\t')
+    merged_data = merged_data.groupby("gene").apply(lambda grp: remove_asc(grp, partition_matrix)).reset_index(drop=True)
+
     # Deal with command line arguments/options
-    if args.option == "neg_control":
+    if args.group == "control":
         merged_data = merged_data.groupby("gene").apply(neg_control).reset_index(drop=True)
-    if args.option == "drop_asc":
-        merged_data = merged_data.groupby("gene").apply(drop_asc).reset_index(drop=True)
     
     # Initialize empty parameter columns
     merged_data["beta_Afr"] = None

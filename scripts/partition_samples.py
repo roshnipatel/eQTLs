@@ -1,5 +1,6 @@
 import argparse
 import pandas as pd
+import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--intersect')
@@ -7,7 +8,8 @@ parser.add_argument('--afr_samples')
 parser.add_argument('--eur_samples')
 parser.add_argument('--afr_validation_run', action='store_true')
 parser.add_argument('--genes')
-parser.add_argument('--out')
+parser.add_argument('--out_dir')
+parser.add_argument('--partition')
 args = parser.parse_args()
 
 cis_window = 200000
@@ -43,13 +45,13 @@ hom_Afr_tracts = hom_Afr_tracts.drop(['counts'], axis=1)
 
 if args.afr_validation_run:
     for gene, df in hom_Afr_tracts.groupby("gene_id"):
-        df.sample(n = 50).to_csv(args.out + "/reestimation_validation/Afr/" + gene + ".txt", header=False, index=False, columns=["nwd_id"])
+        df.sample(n = 50).to_csv(args.out_dir + "/reestimation_validation/Afr/" + gene + ".txt", header=False, index=False, columns=["nwd_id"])
 
 # Write Afr-Am sample IDs to file and store sample sizes for each gene
 gene_counts = {}
 for gene, df in hom_Afr_tracts.groupby("gene_id"):
     gene_counts[gene] = df.shape[0]
-    df.to_csv(args.out + "/reestimation_primary/Afr/" + gene + ".txt", header=False, index=False, columns=["nwd_id"])  
+    df.to_csv(args.out_dir + "/reestimation_primary/Afr/" + gene + ".txt", header=False, index=False, columns=["nwd_id"])  
 
 # Identify Afr-Am individuals that have one chromosome with African ancestry
 # overlapping gene's cis window and one chromosome with European ancestry 
@@ -62,17 +64,25 @@ anc_het_tracts = pd.merge(het_Afr_tracts, het_Eur_tracts, how='inner')
 
 # Write ancestry-heterozygous sample IDs to file
 for gene, df in anc_het_tracts.groupby("gene_id"):
-    df.to_csv(args.out + "/reestimation_primary/het/" + gene + ".txt", header=False, index=False, columns=["nwd_id"])
+    df.to_csv(args.out_dir + "/reestimation_primary/het/" + gene + ".txt", header=False, index=False, columns=["nwd_id"])
+
+# Initialize matrix to store ascertainment information
+all_ind = pd.concat([eur_samples.nwd_id, afr_samples.nwd_id])
+all_genes = gene_counts.keys()
+partition_matrix = pd.DataFrame(np.zeros((len(all_genes), len(all_ind))))
+partition_matrix.columns = all_ind
+partition_matrix.index = all_genes
 
 # Partition Eur individuals into ascertainment and estimation set, such that size of 
 # Eur estimation set matches size of Afr-Am estimation set.
 Eur_IDs = eur_samples["nwd_id"]
-
 for gene, count in gene_counts.items():
     est = Eur_IDs.sample(n = count)
     rest = Eur_IDs.drop(est.index)
     val = rest.sample(n = 50)
     asc = rest.drop(val.index)
-    val.to_csv(args.out + "/reestimation_validation/Eur/" + gene + ".txt", header=False, index=False)
-    est.to_csv(args.out + "/reestimation_primary/Eur/" + gene + ".txt", header=False, index=False)
-    asc.to_csv(args.out + "/ascertainment/Eur/" + gene + ".txt", header=False, index=False)
+    partition_matrix.loc[gene, asc] = 1
+    val.to_csv(args.out_dir + "/reestimation_validation/Eur/" + gene + ".txt", header=False, index=False)
+    est.to_csv(args.out_dir + "/reestimation_primary/Eur/" + gene + ".txt", header=False, index=False)
+    asc.to_csv(args.out_dir + "/ascertainment/Eur/" + gene + ".txt", header=False, index=False)
+partition_matrix.to_csv(args.partition, sep='\t', header=True, index=True)

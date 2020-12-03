@@ -21,4 +21,4 @@ if __name__ == '__main__':
         f.write('.025 quantile: {0}\n'.format(lower))
         f.write('.975 quantile: {0}\n'.format(upper))
 
-    np.savetxt(args.out + "all_values.txt", delta_vals, delimiter='\n')
+    np.savetxt(args.out + "all.txt", delta_vals, delimiter='\n')
