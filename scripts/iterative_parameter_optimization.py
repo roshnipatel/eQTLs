@@ -12,7 +12,14 @@ def document_params(delta_file, betas_file, delta, betas):
         f.write(str(delta))
         f.write('\n')
 
-def optimize_delta(df, covariates):
+def calculate_residual(row, covariates):
+    res = np.array(row["expression"] - row["genotype_Afr"] * row["beta_Afr"] - row["genotype_Eur"] * row["beta_Eur"])
+    for cov in covariates:
+        res = res - row["int_" + cov] * row[cov]
+    res = res - (row["beta_Afr"] - row["beta_Eur"]) * row["genotype_Eur"] * row["race"]
+    return(res)
+
+def optimize_delta(df, covariates, unconstrained):
     """Optimize delta in likelihood model using quadratic programming solver."""
     b = np.array(df["expression"] - df["genotype_Afr"] * df["beta_Afr"] - df["genotype_Eur"] * df["beta_Eur"])
     for cov in covariates:
@@ -23,7 +30,10 @@ def optimize_delta(df, covariates):
     q = np.matrix(np.dot(A, -b))
     G = np.array([1, -1])
     delta = cp.Variable(1)
-    prob = cp.Problem(cp.Minimize((1/2)*cp.quad_form(delta, P) + q.T @ delta), [G @ delta <= h])
+    if unconstrained:
+        prob = cp.Problem(cp.Minimize((1/2)*cp.quad_form(delta, P) + q.T @ delta))
+    else:
+        prob = cp.Problem(cp.Minimize((1/2)*cp.quad_form(delta, P) + q.T @ delta), [G @ delta <= h])
     prob.solve()
     result = delta.value[0]
     return(result)
@@ -51,35 +61,19 @@ def update_params(df, covariates, betas=None, delta=None):
     return(df)
 
 def neg_control(group):
-    """Filter for individuals in African and European estimation sets. Importantly, ancestry-heterozygous
-       individuals are excluded. Validation set of Europeans are coded as African-Americans in order to 
-       perform a negative control. Optimizing model on this recoded dataset should result in delta = 0."""
-    gene = group.name
-    Afr_idv = []
-    with open("data/fastqtl_sample_input/reestimation_primary/Afr/" + gene + ".txt", 'r') as f:
-        for idv in f:
-            Afr_idv.append(idv.strip())
-    Eur_idv = []
-    with open("data/fastqtl_sample_input/reestimation_primary/Eur/" + gene + ".txt", 'r') as f:
-        for idv in f:
-            Eur_idv.append(idv.strip())
-    val_idv = []
-    with open("data/fastqtl_sample_input/reestimation_validation/Eur/" + gene + ".txt", 'r') as f:
-        for idv in f:
-            val_idv.append(idv.strip())
-    group_subset = group[(group.nwd_id.isin(Afr_idv)) | (group.nwd_id.isin(Eur_idv)) | (group.nwd_id.isin(val_idv))]
+    """Exclude African-American ancestry-heterozygous individuals. Randomly assign a subset of 100 European-
+       Americans to be a validation set; code as African-Americans in order to perform negative control."""
+    val_idv = np.random.choice(group.loc[group.race == 0, "nwd_id"].values, size=100, replace=False)
+    group_subset = group[-((group.race == 1) & (group.local_ancestry < 2))]
     group_subset["race"] = group_subset.apply(lambda row: 1 if row.nwd_id in val_idv else row.race, axis=1, result_type='expand')
     return(group_subset)
 
-def drop_asc(group):
+def remove_asc(group, partition_matrix):
     """Remove European ascertainment individuals from dataset for optimizing likelihood model. These 
        individuals were used to select the genes/variants we are optimizing the model on, so inclusion
        of these individuals will result in inflated European effect sizes."""
     gene = group.name
-    asc_idv = []
-    with open("data/fastqtl_sample_input/ascertainment/Eur/" + gene + ".txt", 'r') as f:
-        for idv in f:
-            asc_idv.append(idv.strip())
+    asc_idv = partition_matrix.loc[gene, partition_matrix.loc[gene] == 1].index
     return(group[-group.nwd_id.isin(asc_idv)])
 
 def bootstrap_data(all_df):
@@ -117,10 +111,13 @@ if __name__ == '__main__':
     parser.add_argument('--max_iter')
     parser.add_argument('--delta_out')
     parser.add_argument('--betas_out')
-    parser.add_argument('--option')
+    parser.add_argument('--group')
+    parser.add_argument('--partition')
     parser.add_argument('--covariates', nargs='*')
     parser.add_argument('--delta', default=None)
+    parser.add_argument('--residuals', default=None)
     parser.add_argument('--bootstrap', action='store_true')
+    parser.add_argument('--unconstrained', action='store_true')
     args = parser.parse_args()
 
     merged_data = pd.read_csv(args.merged, sep='\t')
@@ -132,11 +129,13 @@ if __name__ == '__main__':
     for cov in args.covariates:
         merged_data["int_" + cov] = None
 
+    # Remove ascertainment individuals to avoid biasing parameter estimation
+    partition_matrix = pd.read_csv(args.partition, sep='\t', index_col=0)
+    merged_data = merged_data.groupby("gene").apply(lambda grp: remove_asc(grp, partition_matrix)).reset_index(drop=True)
+
     # Deal with command line arguments/options
-    if args.option == "neg_control":
+    if args.group == "control":
         merged_data = merged_data.groupby("gene").apply(neg_control).reset_index(drop=True)
-    if args.option == "drop_asc":
-        merged_data = merged_data.groupby("gene").apply(drop_asc).reset_index(drop=True)
     if args.bootstrap:
         merged_data = bootstrap_data(merged_data)
 
@@ -152,7 +151,7 @@ if __name__ == '__main__':
             if i == 0:
                 curr_delta = np.random.uniform(0, 1)
             else:
-                curr_delta = optimize_delta(merged_data, args.covariates)
+                curr_delta = optimize_delta(merged_data, args.covariates, args.unconstrained)
             if (abs(curr_delta - prev_delta) < .0001):
                 break
             merged_data = update_params(merged_data, args.covariates, delta=curr_delta)
@@ -160,3 +159,8 @@ if __name__ == '__main__':
             curr_betas = merged_data.groupby("gene").apply(lambda group: optimize_betas(group, args.covariates))
             merged_data = update_params(merged_data, args.covariates, betas=curr_betas)
             document_params(args.delta_out, args.betas_out, curr_delta, curr_betas)
+
+    if args.residuals is not None: # Write residuals to file
+        fitted_residuals = merged_data.apply(lambda row: calculate_residual(row, args.covariates), axis=1)
+        fitted_residuals.to_csv(args.residuals, index=False)
+

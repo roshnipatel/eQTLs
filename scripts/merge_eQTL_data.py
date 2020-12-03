@@ -119,13 +119,13 @@ def prepare_merged_df(afr_hit_path, eur_hit_path, tract_path, n_genes, swap_alle
     # split tract info ID into separate columns
     tracts = pd.read_csv(tract_path, names=["chrom", "start", "stop", "ID"], sep='\t')
     tracts[["nwd_id", "haplotype", "ancestry"]] = tracts.apply(lambda x: pd.Series(x.ID.split('_')), 
-                                                              axis=1) 
+                                                               axis=1) 
 
     # Specify which genotype and phenotype files need to be read
-    afr_geno_files = ["data/fastqtl_geno_input/Afr/" + g + ".vcf.gz" for g in all_genes]
-    afr_pheno_files = ["data/fastqtl_pheno_input/Afr/" + g + ".txt" for g in all_genes]
-    eur_geno_files = ["data/fastqtl_geno_input/Eur/" + g + ".vcf.gz" for g in all_genes]
-    eur_pheno_files = ["data/fastqtl_pheno_input/Eur/" + g + ".txt" for g in all_genes]
+    afr_geno_files = ["data/QTL_geno_input/Afr/" + g + ".vcf.gz" for g in all_genes]
+    afr_pheno_files = ["data/QTL_pheno_input/Afr/" + g + ".txt" for g in all_genes]
+    eur_geno_files = ["data/QTL_geno_input/Eur/" + g + ".vcf.gz" for g in all_genes]
+    eur_pheno_files = ["data/QTL_pheno_input/Eur/" + g + ".txt" for g in all_genes]
 
     # Subsamples variants/genes/phenotypes based on user-specified argument. Used mostly for 
     # debugging purposes in conjunction with the swap_alleles parameter.

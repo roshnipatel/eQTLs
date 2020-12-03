@@ -131,7 +131,17 @@
         "time"      : "30:00",
         "memory"    : 10000
     },
+    "anova_analysis":
+    {
+        "time"      : "15:00",
+        "memory"    : 5000
+    },
     "optimize":
+    {
+        "time"      : "15:00",
+        "memory"    : 5000
+    },
+    "optimize_unconstrained":
     {
         "time"      : "15:00",
         "memory"    : 5000
