@@ -33,7 +33,7 @@ if __name__ == '__main__':
     merged_data = pd.read_csv(args.merged, sep='\t')
 
     # Remove ascertainment individuals to avoid biasing parameter estimation
-    partition_matrix = pd.read_csv(args.partition, sep='\t')
+    partition_matrix = pd.read_csv(args.partition, sep='\t', index_col=0)
     merged_data = merged_data.groupby("gene").apply(lambda grp: remove_asc(grp, partition_matrix)).reset_index(drop=True)
 
     # Deal with command line arguments/options
