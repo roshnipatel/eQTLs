@@ -22,17 +22,22 @@ QQ_plot = function(eQTL_path, plot_title) {
   return(p)
 }
 
-# Obtain bootstrap confidence intervals for total least squares
-bootstrap.TLS <- function(tib) {
-  n = nrow(tib)
-  slopes = rep(0, n)
-  for (i in 1:n) {
-    samp = tib %>% sample_n(n, TRUE)
-    samp_slope = one_dim_PCA(samp)[[1]]
-    slopes[i] = samp_slope
-  }
-  return(slopes)
-}
+# Plot Afr vs Eur effect sizes and total least squares fit
+PCA_res = one_dim_PCA(merged %>% select(effect_Eur, effect_Afr))
+bootstrap_CI = quantile(bootstrap.TLS(merged %>% select(effect_Eur, effect_Afr)), c(0.025, 0.975))
+plot_df = merged %>% mutate(dummy_x = seq(from=-6, to=9, length.out=nrow(merged)), 
+                            CI_min = dummy_x * bootstrap_CI[[1]] + PCA_res[[2]], 
+                            CI_max = dummy_x * bootstrap_CI[[2]] + PCA_res[[2]])
+pdf("plots/Afr_vs_Eur_effect_sizes.TLS.pdf")
+ggplot(plot_df) + 
+  geom_point(mapping=aes(effect_Eur, effect_Afr)) + 
+  labs(x="European effect size", y="African effect size") + theme_pubr() +
+  geom_ribbon(aes(x=dummy_x, ymin=CI_max, ymax=CI_min), fill="#F5A76C") +
+  geom_abline(slope=1, intercept=0, linetype="dotted") + 
+  geom_abline(slope=PCA_res[[1]], intercept=PCA_res[[2]], linetype="solid") + 
+  coord_cartesian(xlim=c(-5, 7), ylim=c(-5, 7)) + 
+  theme(text = element_text(size=20))
+dev.off()
 
 # Plot Afr vs Eur t-statistics and total least squares fit
 PCA_res = one_dim_PCA(merged %>% select(t_Eur, t_Afr))
@@ -52,52 +57,15 @@ ggplot(plot_df) +
   theme(text = element_text(size=20))
 ggsave("plots/Afr_vs_Eur_tstats.both.pdf")
 
-# Plot Afr vs Eur effect sizes and total least squares fit
-PCA_res = one_dim_PCA(merged %>% select(effect_Eur, effect_Afr))
-bootstrap_CI = quantile(bootstrap.TLS(merged %>% select(effect_Eur, effect_Afr)), c(0.025, 0.975))
-plot_df = merged %>% mutate(dummy_x = seq(from=-6, to=9, length.out=nrow(merged)), 
-                            CI_min = dummy_x * bootstrap_CI[[1]] + PCA_res[[2]], 
-                            CI_max = dummy_x * bootstrap_CI[[2]] + PCA_res[[2]])
-line_df = data.frame(s = c(PCA_res[[1]], 1), ic = c(PCA_res[[2]], 0), legend = c("total least squares fit", "y = x"))
-line_df$legend = factor(line_df$legend, levels=c("total least squares fit", "y = x"))
-ggplot(plot_df) + 
-  labs(x="European effect size", y="African effect size") + theme_pubr() +
-  theme(legend.position = "right") +
-  geom_ribbon(aes(x=dummy_x, ymin=CI_max, ymax=CI_min), fill="#F5A76C") +
-  geom_abline(data=line_df, mapping=aes(slope=s, intercept=ic, linetype=legend)) + 
-  geom_point(aes(effect_Eur, effect_Afr)) + 
-  coord_cartesian(xlim=c(-5, 7), ylim=c(-5, 7)) + 
-  theme(text = element_text(size=20))
-ggsave("plots/Afr_vs_Eur_effect_sizes.both.pdf")
-
-ggplot(plot_df) + geom_ribbon(aes(x=dummy_x, ymin=CI_max, ymax=CI_min), fill="#F5A76C")
-
 # Plot Afr vs Eur effect sizes and regress with OLS and inverse variance weighting
 weights = 1/sqrt((merged %>% pull(se_Afr))^2 + (merged %>% pull(se_Eur))^2) # Define weights for inverse variance weighting
 pdf("plots/Afr_vs_Eur_effect_sizes.OLS.pdf")
-p_AfrvsEur = ggplot(merged, aes(effect_Eur, effect_Afr)) + geom_point() + 
-  geom_smooth(method=lm, color='blue', aes(weight=weights)) + geom_abline(aes(intercept=0, slope=1)) + 
-  labs(x="European effect size", y="African effect size") + theme_pubr() + 
-  stat_cor(method = "pearson", label.x = -2, label.y = 3.5, size=6) +
-  stat_regline_equation(label.x=-2, label.y = 4, size=6) + 
-  xlim(-2, 5) + ylim(-2, 5)
-p_EurvsAfr = ggplot(merged, aes(effect_Afr, effect_Eur)) + geom_point() + 
-  geom_smooth(method=lm, color='blue', aes(weight=weights)) + geom_abline(aes(intercept=0, slope=1)) + 
-  labs(x="African effect size", y="European effect size") + theme_pubr() + 
-  stat_cor(method = "pearson", label.x = -2, label.y = 3.5, size=6) +
-  stat_regline_equation(label.x=-2, label.y = 4, size=6) + 
-  xlim(-2, 5) + ylim(-2, 5)
-ggarrange(p_AfrvsEur, p_EurvsAfr)
-dev.off()
-
-# Plot Afr vs Eur effect sizes and regress with 1d PCA
-pdf("plots/Afr_vs_Eur_effect_sizes.1dPCA.pdf")
-PCA_res = one_dim_PCA(merged %>% select(effect_Eur, effect_Afr))
 ggplot(merged, aes(effect_Eur, effect_Afr)) + geom_point() + 
-  geom_abline(slope=PCA_res[[1]], intercept=PCA_res[[2]], color='blue', size=1) + 
-  geom_abline(slope=1, intercept=0) + 
+  geom_abline(intercept=0, slope=1, linetype="dotted") + 
+  geom_smooth(method=lm, color='black', aes(weight=weights), se=TRUE) + 
   labs(x="European effect size", y="African effect size") + theme_pubr() +
-  xlim(-2, 5) + ylim(-2, 5)
+  xlim(-5, 7) + ylim(-5, 7) +
+  theme(text = element_text(size=20))
 dev.off()
 
 # Plot hypothesis testing and regress with OLS
