@@ -134,14 +134,14 @@
     "anova_analysis":
     {
         "time"      : "15:00",
-        "memory"    : 5000
+        "memory"    : 10000
     },
     "optimize":
     {
         "time"      : "15:00",
         "memory"    : 5000
     },
-    "optimize_unconstrained":
+    "optimize_remove_val":
     {
         "time"      : "15:00",
         "memory"    : 5000

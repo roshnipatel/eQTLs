@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 from iterative_parameter_optimization import update_params
 from iterative_parameter_optimization import optimize_betas
-from iterative_parameter_optimization import remove_asc, neg_control
+from iterative_parameter_optimization import remove_ind, neg_control
 
 def likelihood(df, delta, covariates):
     """Returns log-likelihood of data based on the given value of delta."""
@@ -22,21 +22,22 @@ def likelihood(df, delta, covariates):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--merged')
-    parser.add_argument('--partition')
+    parser.add_argument('--ascertainment')
     parser.add_argument('--group')
+    parser.add_argument('--covariates', nargs='+')
     parser.add_argument('--betas', default=None)
     parser.add_argument('--delta', default=None)
-    parser.add_argument('--covariates', nargs='+')
     parser.add_argument('--out')
     args = parser.parse_args()
 
     merged_data = pd.read_csv(args.merged, sep='\t')
 
     # Remove ascertainment individuals to avoid biasing parameter estimation
-    partition_matrix = pd.read_csv(args.partition, sep='\t')
-    merged_data = merged_data.groupby("gene").apply(lambda grp: remove_asc(grp, partition_matrix)).reset_index(drop=True)
+    ascertainment_matrix = pd.read_csv(args.ascertainment, sep='\t', index_col=0)
+    merged_data = merged_data.groupby("gene").apply(lambda grp: 
+        remove_ind(grp, ascertainment_matrix)).reset_index(drop=True)
 
-    # Deal with command line arguments/options
+    # If computing likelihoods for a negative control, massage data accordingly
     if args.group == "control":
         merged_data = merged_data.groupby("gene").apply(neg_control).reset_index(drop=True)
     
@@ -46,22 +47,29 @@ if __name__ == '__main__':
     for cov in args.covariates:
         merged_data["int_" + cov] = None
 
-    if args.delta is not None: # Compute likelihood of data only for user-specified value of delta
+    # Specify values of delta for which to compute likelihood of data. If
+    # command-line option provided, compute likelihood for that value alone. 
+    # Else, compute likelihood for 100 values of delta uniformly between 0 and 1.
+    if args.delta is not None:
         delta_list = [float(args.delta)]
-    else: # Compute likelihood of data for 100 values of delta over a uniform grid on [0, 1]
+    else: 
         delta_list = [i / 100 for i in range(0, 101)]
 
-    if args.betas is not None: # Compute likelihood conditional on user-specified betas
+    # Optionally specify betas on which to conditionally compute likelihood
+    if args.betas is not None: 
         betas = pd.read_csv(args.betas, sep='\t')
         betas = betas.set_index("gene")
         merged_data = update_params(merged_data, args.covariates, betas=betas)
 
+    # Compute likelihood of data for each specified value of delta
     likelihood_list = []
     for d in delta_list:
         print("processing delta = {0}".format(str(d)))
-        if args.betas is None: # Optimize betas for each value of delta, and then compute likelihood
+        if args.betas is None: 
+            # Optimize betas for each value of delta, and then compute likelihood
             merged_data = update_params(merged_data, args.covariates, delta=d)
-            curr_betas = merged_data.groupby("gene").apply(lambda group: optimize_betas(group, args.covariates))
+            curr_betas = merged_data.groupby("gene").apply(lambda group: 
+                optimize_betas(group, args.covariates))
             merged_data = update_params(merged_data, args.covariates, betas=curr_betas)
         likelihood_list.append(likelihood(merged_data, d, args.covariates))
     res = pd.DataFrame({"Delta": delta_list, "Likelihood": likelihood_list})

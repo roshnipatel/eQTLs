@@ -10,5 +10,6 @@ scripts/__pycache__/*
 scripts/src/__pycache__
 scripts/src/__pycache__/*
 scripts/slurm_submission
+scripts/single_use
 results
 results/*

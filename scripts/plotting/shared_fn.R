@@ -44,6 +44,17 @@ one_dim_PCA = function(tib) {
   return(c(slope = slope, intercept = intercept))
 }
 
+bootstrap.TLS <- function(tib) {
+  n = nrow(tib)
+  slopes = rep(0, n)
+  for (i in 1:n) {
+    samp = tib %>% sample_n(n, TRUE)
+    samp_slope = one_dim_PCA(samp)[[1]]
+    slopes[i] = samp_slope
+  }
+  return(slopes)
+}
+
 set_up = function(dir_path) {
   tib = merge_hits(dir_path)
   tib = compute_plot_cols(tib)

@@ -2,7 +2,7 @@ library(tidyverse)
 library(ggpubr)
 library(reshape2)
 
-setwd("~/sherlock/oak/eQTLs/results/likelihood_model/v4.1/global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1/")
+setwd("~/sherlock/oak/eQTLs/results/likelihood_model/v4.2/global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1/")
 dir.create("plots/", showWarnings = FALSE)
 
 # Plot delta vs EM iteration
@@ -43,11 +43,11 @@ plot_likelihood = function(likelihood_file, bootstrap_file) {
     theme(text = element_text(size=20))
   return(p)
 }
-pdf("plots/likelihood_vs_delta_drop_asc.pdf")
-plot_likelihood("likelihood_vs_delta_drop_asc.txt", "results_bootstrap_drop_asc_delta.summary.txt")
+pdf("plots/likelihood_vs_delta.test.pdf")
+plot_likelihood("test.likelihood_vs_delta.txt", "test.bootstrap_summary.txt")
 dev.off()
-pdf("plots/likelihood_vs_delta_neg_control.pdf")
-plot_likelihood("likelihood_vs_delta_neg_control.txt", "results_bootstrap_neg_control_delta.summary.txt")
+pdf("plots/likelihood_vs_delta.control.pdf")
+plot_likelihood("control.likelihood_vs_delta.txt", "control.bootstrap_summary.txt")
 dev.off()
 
 # Plot distribution of bootstrap deltas
@@ -55,23 +55,39 @@ deltas = read_tsv("results_bootstrap_drop_asc_delta.all_values.txt", col_names =
 ggplot(deltas, aes(Delta)) + geom_histogram(binwidth = 0.005) + theme_pubr()
 
 # Plot Afr vs Eur effects for EM run
-source("~/sherlock/oak/eQTLs/scripts/plots/shared_fn.R")
+source("~/sherlock/oak/eQTLs/scripts/plotting/shared_fn.R")
 new_betas = read_tsv("optimize_drop_asc_betas.txt")
-new_betas = new_betas %>% transmute(Gene = gene, effect_Afr = beta_Afr,
+new_betas = new_betas %>% transmute(gene, effect_Afr = beta_Afr,
                                     effect_Eur = beta_Eur)
-pdf("plots/Afr_vs_Eur_effects.1dpca.pdf")
 PCA_res = one_dim_PCA(new_betas %>% select(effect_Eur, effect_Afr))
-ggplot(new_betas, aes(effect_Eur, effect_Afr)) + geom_point() + 
-  geom_abline(slope=PCA_res[[1]], intercept=PCA_res[[2]], color='blue', size=1) + 
-  geom_abline(slope=1, intercept=0) + 
-  labs(x="European effect size", y="African effect size") + theme_pubr() + 
-  xlim(-4, 7) + ylim(-4, 7) 
+bootstrap_CI = quantile(bootstrap.TLS(new_betas %>% select(effect_Eur, effect_Afr)), c(0.025, 0.975))
+plot_df = new_betas %>% mutate(dummy_x = seq(from=-6, to=9, length.out=nrow(new_betas)), 
+                            CI_min = dummy_x * bootstrap_CI[[1]] + PCA_res[[2]], 
+                            CI_max = dummy_x * bootstrap_CI[[2]] + PCA_res[[2]])
+pdf("plots/Afr_vs_Eur_effect_sizes.TLS.pdf")
+ggplot(plot_df) + 
+  geom_point(mapping=aes(effect_Eur, effect_Afr)) + 
+  labs(x="European effect size", y="African effect size") + theme_pubr() +
+  geom_ribbon(aes(x=dummy_x, ymin=CI_max, ymax=CI_min), fill="#F5A76C") +
+  geom_abline(slope=1, intercept=0, linetype="dotted") + 
+  geom_abline(slope=PCA_res[[1]], intercept=PCA_res[[2]], linetype="solid") + 
+  coord_cartesian(xlim=c(-5, 7), ylim=c(-5, 7)) + 
+  theme(text = element_text(size=20))
 dev.off()
-pdf("plots/Afr_vs_Eur_effects.linreg.pdf")
-ggplot(new_betas, aes(effect_Eur, effect_Afr)) + geom_point() + 
-  geom_abline(slope=1, intercept=0) + 
-  geom_smooth(method='lm') +
-  labs(x="European effect size", y="African effect size") + theme_pubr() + 
-  xlim(-4, 7) + ylim(-4, 7) 
+
+# Compare betas from full model vs initial estimation of anc-specific effect sizes
+merged = set_up("~/sherlock/oak/eQTLs/results/QTL_calling/v4.0/hits/") %>% 
+  select(gene, effect_Afr, effect_Eur) %>% pivot_longer(-gene)
+new_betas = new_betas %>% pivot_longer(-gene)
+merged = merged %>% inner_join(new_betas, by=c("gene", "name"), suffix = c("_OLS", "_model"))
+p_Eur = ggplot(merged %>% filter(name == "effect_Eur"), aes(value_OLS, value_model)) +
+  geom_point() + theme_pubr() + theme(text = element_text(size=20)) +
+  geom_abline(slope = 1, intercept = 0, linetype="dotted") + xlab("OLS estimate") + 
+  ylab("likelihood model estimate") + ggtitle("European effects")
+p_Afr = ggplot(merged %>% filter(name == "effect_Afr"), aes(value_OLS, value_model)) +
+  geom_point() + theme_pubr() + theme(text = element_text(size=20)) +
+  geom_abline(slope = 1, intercept = 0, linetype="dotted") + xlab("OLS estimate") + 
+  ylab("likelihood model estimate") + ggtitle("African effects")
+pdf("plots/compare_model_betas.pdf")
+ggarrange(p_Eur, p_Afr)
 dev.off()
-summary(lm(new_betas$effect_Afr ~ new_betas$effect_Eur))

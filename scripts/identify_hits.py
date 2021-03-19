@@ -2,6 +2,7 @@ import argparse
 import pandas as pd
 
 def FDR_threshold(tag_SNPs, colname, fdr):
+    """Apply FDR threshold to SNPs based on Benjamini-Hochberg procedure."""
     n_SNPs = tag_SNPs.shape[0]
     def check_significance(row):
         pval_threshold = (row.name + 1) / n_SNPs * fdr
@@ -15,19 +16,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ascertainment', action='store_true')
     parser.add_argument('--reestimation', action='store_true')
-    parser.add_argument('--merged', help="merged file path to extract hits from")
+    parser.add_argument('--merged')
     parser.add_argument('--hits', help="existing file of hits to select (used in reestimation mode)")
-    parser.add_argument('--out', help="output file path")
     parser.add_argument('--fdr', help="FDR threshold (used in ascertainment mode)")
+    parser.add_argument('--out')
     args = parser.parse_args()
 
-    if args.ascertainment: # Identify hits in ascertainment dataset based on user-specified FDR
+    if args.ascertainment: 
+        # Identify hits in ascertainment dataset based on user-specified FDR.
+        # For each gene, select SNP with smallest p-value if multiple pass the 
+        # FDR threshold.
         fdr = float(args.fdr)
         all_SNPs = pd.read_csv(args.merged, sep='\t')
         sig_SNPs = FDR_threshold(all_SNPs, "pval", fdr)
-        sig_SNPs = sig_SNPs.loc[sig_SNPs.groupby("gene")["pval"].idxmin()] # Select max one SNP per gene
+        sig_SNPs = sig_SNPs.loc[sig_SNPs.groupby("gene")["pval"].idxmin()] 
         sig_SNPs.to_csv(args.out, index=False, sep='\t')
-    elif args.reestimation: # Identify hits in reestimation dataset based on existing ascertainment hits
+    elif args.reestimation: 
+        # Extract hits from reestimation dataset based on existing ascertainment hits
         all_SNPs = pd.read_csv(args.merged, sep='\t')
         hits = pd.read_csv(args.hits, sep='\t')
         sig_SNPs = pd.merge(all_SNPs, hits[["gene", "ID"]])

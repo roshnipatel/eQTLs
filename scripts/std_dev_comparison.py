@@ -26,12 +26,3 @@ if __name__ == "__main__":
     
     all_var = pd.merge(props, reads, left_index=True, right_index=True)
     all_var.to_csv("data/variances.txt", sep='\t')
-
-    # props_res = compare_var(afr_props, eur_props)
-    # print(props_res)
-    # reads_res = compare_var(afr_reads, eur_reads)
-    # print(reads_res)
-    # props_res = compare_var(afr_props, eur_props, True)
-    # print(props_res)
-    # reads_res = compare_var(afr_reads, eur_reads, True)
-    # print(reads_res)
