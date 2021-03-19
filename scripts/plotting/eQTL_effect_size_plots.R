@@ -2,7 +2,7 @@ library(tidyverse)
 library(ggpubr)
 
 # Specify working directory
-setwd("~/sherlock/oak/eQTLs/results/QTL_calling/v4.0/")
+setwd("~/sherlock/oak/eQTLs/results/QTL_calling/v4.2/")
 dir.create("plots", showWarnings = FALSE)
 
 source("~/sherlock/oak/eQTLs/scripts/plotting/shared_fn.R")
@@ -35,7 +35,7 @@ ggplot(plot_df) +
   geom_ribbon(aes(x=dummy_x, ymin=CI_max, ymax=CI_min), fill="#F5A76C") +
   geom_abline(slope=1, intercept=0, linetype="dotted") + 
   geom_abline(slope=PCA_res[[1]], intercept=PCA_res[[2]], linetype="solid") + 
-  coord_cartesian(xlim=c(-5, 7), ylim=c(-5, 7)) + 
+  coord_cartesian(xlim=c(-5, 7.5), ylim=c(-5, 7.5)) + 
   theme(text = element_text(size=20))
 dev.off()
 

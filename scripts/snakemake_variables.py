@@ -39,36 +39,31 @@ BED_DIR = "data/bed/" # Directory of local ancestry tracts
 ANNO_SCRIPT = "scripts/collapse_annotation.py"
 SAMPLE_SELECTION_SCRIPT = "scripts/select_samples.py"
 NORM_SCRIPT = "scripts/normalize_expression.py"
-PEER_SCRIPT = "scripts/src/run_PEER.R"
 COV_PREP_SCRIPT = "scripts/prep_covariates.py"
-COV_COMB_SCRIPT = "scripts/src/combine_covariates.py"
 TRACT_SCRIPT = "scripts/combine_tracts.py"
 GENE_BED_SCRIPT = "scripts/make_genes_bed.py"
 PARTITION_SCRIPT = "scripts/partition_samples.py"
-EQTL_SCRIPT = "scripts/call_eqtls.py"
+ESTIMATION_SCRIPT = "scripts/estimate_effect_sizes.py"
 ID_HITS_SCRIPT = "scripts/identify_hits.py"
-MERGE_GENES = "scripts/merge_gene_list.py"
-MERGE_RES = "scripts/merge_eqtl_calls.py"
+GENE_LIST_SCRIPT = "scripts/merge_gene_list.py"
+CONCAT_QTL_SCRIPT = "scripts/concatenate_estimates.py"
 PCA_SCRIPT = "scripts/generate_PC.py"
-SD_SCRIPT = "scripts/std_dev_comparison.R"
+SD_SCRIPT = "scripts/std_dev_comparison.py"
+MERGE_SCRIPT = "scripts/merge_eQTL_data.py"
 SIM_SCRIPT = "scripts/simulation.py"
-
-
-
-### Misc. Utilities ###
-
-# Docker environment containing FastQTL (downloaded from https://hub.docker.com/r/broadinstitute/gtex_eqtl/)
-FASTQTL_DOCKER = "gtex_eqtl_V8.sif"
+SIM_PARSER = "scripts/sim_bias_variance.py"
+OPTIMIZE_SCRIPT = "scripts/iterative_parameter_optimization.py"
+LIKELIHOOD_SCRIPT = "scripts/compute_likelihood.py"
+EXP_CORRELATION_SCRIPT = "scripts/correlate_expression_covariates.py"
+ANOVA_SCRIPT = "scripts/anova.py"
+BOOTSTRAP_SCRIPT = "scripts/parse_bootstrap.py"
 
 
 
 ### Parameters ###
 
-# Window size for eQTL calling
+# Radius of cis window for testing SNPs
 WINDOW = 100000 # 100 kb
-
-# Permutation range for fastQTL permutation pass
-PERM = "1000 1000"
 
 # Number of iterations for likelihood EM
 MAX_ITER = 300

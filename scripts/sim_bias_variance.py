@@ -11,6 +11,7 @@ if __name__ == '__main__':
 
     sim_delta = float(args.simulated_delta)
 
+    # Compute bias and variance of delta estimates from simulations
     delta_vals = []
     for path in args.delta_files:
         with open(path, 'r') as f:

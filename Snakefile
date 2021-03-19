@@ -4,8 +4,18 @@ include: "scripts/snakemake_variables.py"
 shell.executable("/usr/bin/bash")
 shell.prefix("source ~/.bashrc; ")
 
+# Define population for ascertainment of significant SNPs
+ASC_POP = "Eur"
+
+# Define lists for expanding input for rule all
+NO_BETA_COV_LIST = ["seq_center.exam", "race_Afr.race_Eur.seq_center.exam", 
+                    "global_ancestry.genotype_PC1.race_Afr.race_Eur.seq_center.exam",
+                    "global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"]
+SINGLE_BETA_COV_LIST = ["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"]
+NO_INT_COV_LIST = ["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"]
 COV_LIST = ["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"]
 GROUPS = ["test", "control"]
+IND_SUBSETS = ["all", "AAEur", "AAAfr", "EA"]
 
 rule all:
     input:
@@ -16,7 +26,7 @@ rule all:
         DATA_DIR + "QTL_output/randsamp_merged_reestimation_validation_Afr.txt",
         DATA_DIR + "QTL_output/randsamp_merged_reestimation_primary_het.txt",
         DATA_DIR + "QTL_output/randsamp_merged_reestimation_primary_Afr.txt",
-        DATA_DIR + "QTL_output/hits_ascertainment_Eur.txt",
+        DATA_DIR + "QTL_output/hits_ascertainment_" + ASC_POP + ".txt",
         DATA_DIR + "QTL_output/hits_reestimation_validation_Eur.txt",
         DATA_DIR + "QTL_output/hits_reestimation_validation_Afr.txt",
         DATA_DIR + "QTL_output/hits_reestimation_primary_Eur.txt",
@@ -25,19 +35,27 @@ rule all:
         # 
         ### For likelihood model stuff:
         DATA_DIR + "MLE/merged_data.txt",
-        expand(DATA_DIR + "MLE/{cov}/{group}.optimize_{param}.txt", param=["delta", "betas", "residuals"], cov=COV_LIST, group=GROUPS),
-        expand(DATA_DIR + "MLE/{cov}/{group}.bootstrap_summary.txt", cov=COV_LIST, group=GROUPS),
-        expand(DATA_DIR + "MLE/{cov}/{group}.likelihood_vs_delta.txt", cov=COV_LIST, group=GROUPS)
+        expand(DATA_DIR + "MLE/{cov}/{group}.mode_fit_delta.optimize_{param}.txt", 
+               param=["delta", "betas"], cov=COV_LIST, group=GROUPS),
+        expand(DATA_DIR + "MLE/{cov}/{group}.bootstrap_summary.txt", 
+               cov=COV_LIST, group=GROUPS),
+        expand(DATA_DIR + "MLE/{cov}/{group}.likelihood_vs_delta.txt", 
+               cov=COV_LIST, group=GROUPS),
+        expand(DATA_DIR + "MLE/{cov}/{group}.mode_fit_delta.ind_{ind}.optimize.anova_analysis.txt", 
+               cov=COV_LIST, group=["test"], ind=IND_SUBSETS),
+        expand(DATA_DIR + "MLE/{cov}/{group}.mode_fit_no_beta.ind_all.optimize.anova_analysis.txt", 
+               cov=NO_BETA_COV_LIST, group=["test"]),
+        expand(DATA_DIR + "MLE/{cov}/{group}.mode_fit_single_beta.ind_all.optimize.anova_analysis.txt", 
+               cov=SINGLE_BETA_COV_LIST, group=["test"]),
+        expand(DATA_DIR + "MLE/{cov}/{group}.mode_no_interaction.ind_{ind}.optimize.anova_analysis.txt", 
+               cov=NO_INT_COV_LIST, group=["test"], ind=IND_SUBSETS),
         # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.13, 0.17, 0.30], corr=[0.8], n_snp=[3200], n_idv=["200_150"]),
         # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.5, 0.8, 0.9], n_snp=[3200], n_idv=["200_150"]),
         # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.8], n_snp=[1000, 3200, 6000], n_idv=["200_150"]),
         # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.8], n_snp=[3200], n_idv=["200_150", "350_150", "500_300"])
         #
         ### For covariate/PC stuff:
-        # DATA_DIR + "correlation.expression_regressed.global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1.txt",
-        # DATA_DIR + "correlation.expression.txt"
-        # DATA_DIR + "variances.txt"
-        # "results/likelihood_model/v4.0/anova_analysis.txt"
+        DATA_DIR + "correlation.expression.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
@@ -69,7 +87,7 @@ rule select_samples:
         python {SAMPLE_SELECTION_SCRIPT} \
             --sample_data {input.sample_data} \
             --exclusion_list {input.exclusion_list} \
-            --output {params.prefix}
+            --out {params.prefix}
         conda deactivate
         """
 
@@ -117,11 +135,11 @@ rule make_gene_list:
     shell:
         """
         conda activate py36
-        python {MERGE_GENES} --bed {input} --out {output}
+        python {GENE_LIST_SCRIPT} --bed {input} --out {output}
         conda deactivate
         """
 
-############################# GENERATE COVARIATES #############################
+############################# GENERATE COVARIATES ##############################
 
 rule snp_filter:
     input:
@@ -178,7 +196,8 @@ rule find_indep_snps:
         vcf=rules.MAF_filter.output.vcf
     output:
         keep=temp(DATA_DIR + "mesa.{anc}.maf05.prune.in"),
-        exclude=temp(expand(DATA_DIR + "mesa.{{anc}}.maf05.{ext}", ext=["log", "nosex", "prune.out"]))
+        exclude=temp(expand(DATA_DIR + "mesa.{{anc}}.maf05.{ext}", 
+                            ext=["log", "nosex", "prune.out"]))
     params:
         prefix=lambda wildcards, output: output.keep[:-9]
     shell:
@@ -252,7 +271,7 @@ rule extract_linreg_covariates:
         cut -f 2,3,4,10 {input} > {output}
         """
 
-############################## PARTITION SAMPLES ##############################
+############################## PARTITION SAMPLES ###############################
 
 rule make_anc_bed:
     input:
@@ -271,7 +290,6 @@ rule make_anc_bed:
 rule make_genes_bed:
     input:
         genes=rules.make_gene_list.output,
-        anno=rules.annotate_genes.output,
         chrom_lengths=DATA_DIR + CHR_LEN 
     output:
         DATA_DIR + "genes.bed"
@@ -279,7 +297,8 @@ rule make_genes_bed:
         """
         conda activate py36
         python {GENE_BED_SCRIPT} --genes {input.genes} \
-            --anno {input.anno} --chrom_lengths {input.chrom_lengths} \
+            --window {WINDOW} \
+            --chrom_lengths {input.chrom_lengths} \
             --out {output}
         conda deactivate
         """
@@ -306,12 +325,14 @@ checkpoint partition_samples:
         flag=expand(DATA_DIR + "vcf_filter_{anc}.done", anc=["Afr", "Eur"])
     output:
         directory(DATA_DIR + "QTL_sample_input"),
-        DATA_DIR + "partition.txt"
+        DATA_DIR + "ascertainment.txt",
+        DATA_DIR + "validation.txt"
     params:
         output_dir=DATA_DIR + "QTL_sample_input"
     shell:
         """
         mkdir -p {params.output_dir}/ascertainment/Eur
+        mkdir -p {params.output_dir}/ascertainment/Afr
         mkdir -p {params.output_dir}/reestimation_primary/Afr
         mkdir -p {params.output_dir}/reestimation_primary/het
         mkdir -p {params.output_dir}/reestimation_primary/Eur
@@ -323,13 +344,15 @@ checkpoint partition_samples:
             --afr_samples {input.afr_samples} \
             --eur_samples {input.eur_samples} \
             --genes {input.genes} \
+            --ascertainment {output[1]} \
+            --validation {output[2]}
             --afr_validation_run \
+            --ascertainment_pop {ASC_POP} \
             --out_dir {params.output_dir} \
-            --partition {output[1]}
         conda deactivate
         """
 
-############################ LIN REG EQTL CALLING ############################
+############################ LIN REG EQTL CALLING ##############################
 
 rule subset_geno:
     input:
@@ -365,7 +388,7 @@ rule subset_pheno:
         cat <(zcat {input.bed} | head -n 1) <(zgrep -m 1 {wildcards.gene} {input.bed}) > {output}
         """
 
-rule call_eQTLs:
+rule estimate_effect_sizes:
     input:
         geno_input=lambda wildcards: expand(rules.subset_geno.output, anc="Eur", \
             gene=wildcards.gene) if wildcards.anc == "Eur" else \
@@ -383,46 +406,45 @@ rule call_eQTLs:
         """
         mkdir -p {params.output_dir}
         conda activate pystats
-        python {EQTL_SCRIPT} \
-            --phenotypes {input.pheno_input} \
+        python {ESTIMATION_SCRIPT} \
             --genotypes {input.geno_input} \
-            --covariates {input.covariates} \
+            --phenotypes {input.pheno_input} \
             --samples {input.sample_input} \
-            --type {wildcards.type} \
+            --covariates {input.covariates} \
             --out {output}
         conda deactivate
         """
 
-def merge_asc_input(wildcards):
+def concat_asc_input(wildcards):
     checkpoint_output = checkpoints.partition_samples.get(**wildcards).output[0]
-    return expand(DATA_DIR + "QTL_output/ascertainment/Eur/{gene}.txt",
+    return expand(DATA_DIR + "QTL_output/ascertainment/{anc}/{gene}.txt",
                   gene=glob_wildcards(os.path.join(checkpoint_output, "ascertainment", 
-                                      "Eur", "{gene}.txt")).gene)
+                                      wildcards.anc, "{gene}.txt")).gene)
 
-def merge_est_input(wildcards):
+def concat_est_input(wildcards):
     checkpoint_output = checkpoints.identify_hits.get(**wildcards).output[0]
     sig_genes = list(pd.read_csv(checkpoint_output, sep='\t')["gene"])
     return expand(DATA_DIR + "QTL_output/reestimation_{type}/{anc}/{gene}.txt",
                   type=wildcards.type, anc=wildcards.anc,
                   gene=sig_genes)
 
-rule merge_ascertainment:
+rule concat_ascertainment:
     input:
-        merge_asc_input
+        concat_asc_input
     output:
-        DATA_DIR + "QTL_output/merged_ascertainment_Eur.txt"
+        DATA_DIR + "QTL_output/merged_ascertainment_{anc}.txt"
     params:
-        dir=DATA_DIR + "QTL_output/ascertainment/Eur/"
+        dir=DATA_DIR + "QTL_output/ascertainment/{anc}/"
     shell:
         """
         conda activate py36
-        python {MERGE_RES} --dir {params.dir} --out {output}
+        python {CONCAT_QTL_SCRIPT} --dir {params.dir} --out {output}
         conda deactivate 
         """
 
-rule merge_reestimation:
+rule concat_estimation:
     input:
-        merge_est_input
+        concat_est_input
     output:
         DATA_DIR + "QTL_output/merged_reestimation_{type}_{anc}.txt"
     params:
@@ -430,15 +452,15 @@ rule merge_reestimation:
     shell:
         """
         conda activate py36
-        python {MERGE_RES} --dir {params.dir} --out {output}
+        python {CONCAT_QTL_SCRIPT} --dir {params.dir} --out {output}
         conda deactivate 
         """
 
 checkpoint identify_hits:
     input:
-        asc=DATA_DIR + "QTL_output/merged_ascertainment_Eur.txt" 
+        asc=DATA_DIR + "QTL_output/merged_ascertainment_{anc}.txt" 
     output:
-        DATA_DIR + "QTL_output/hits_ascertainment_Eur.txt"
+        DATA_DIR + "QTL_output/hits_ascertainment_{anc}.txt"
     params:
         DATA_DIR + "QTL_output/"
     shell:
@@ -455,7 +477,7 @@ checkpoint identify_hits:
 checkpoint extract_hits:
     input:
         merged=DATA_DIR + "QTL_output/merged_reestimation_{type}_{anc}.txt",
-        hits=DATA_DIR + "QTL_output/hits_ascertainment_Eur.txt"
+        hits=DATA_DIR + "QTL_output/hits_ascertainment_" + ASC_POP + ".txt"
     output:
         DATA_DIR + "QTL_output/hits_reestimation_{type}_{anc}.txt"
     params:
@@ -471,15 +493,7 @@ checkpoint extract_hits:
         conda deactivate
         """
 
-############################# LIKELIHOOD MODEL ################################
-
-def hit_genes():
-    afr_df = pd.read_csv("data/QTL_output/hits_reestimation_primary_Afr.txt", sep='\t')
-    eur_df = pd.read_csv("data/QTL_output/hits_reestimation_primary_Eur.txt", sep='\t')
-    afr_genes = set(afr_df["gene"])
-    eur_genes = set(eur_df["gene"])
-    genes = list(afr_genes.intersection(eur_genes))
-    return(genes)
+############################# LIKELIHOOD MODEL #################################
 
 def fetch_genes(f):
     genes, gene_idx = [], None
@@ -497,8 +511,10 @@ def expand_geno_pheno_data(wildcards):
     with open(checkpoints.extract_hits.get(type="primary", anc="Eur").output[0], 'r') as f:
         eur_genes = fetch_genes(f)
     common_genes = list(set(afr_genes) & set(eur_genes))
-    return(expand(DATA_DIR + "QTL_geno_input/{anc}/{gene}.vcf.gz", anc=["Afr", "Eur"], gene=common_genes) + \
-           expand(DATA_DIR + "QTL_pheno_input/{anc}/{gene}.txt", anc=["Afr", "Eur"], gene=common_genes))
+    return(expand(DATA_DIR + "QTL_geno_input/{anc}/{gene}.vcf.gz", 
+                  anc=["Afr", "Eur"], gene=common_genes) + 
+           expand(DATA_DIR + "QTL_pheno_input/{anc}/{gene}.txt", 
+                  anc=["Afr", "Eur"], gene=common_genes))
 
 rule merge_data:
     input:
@@ -515,7 +531,7 @@ rule merge_data:
         """
         mkdir -p {params.out_dir}
         conda activate pystats
-        python scripts/merge_eQTL_data.py --tracts {input.tracts} \
+        python {MERGE_SCRIPT} --tracts {input.tracts} \
             --afr_hits {input.afr_hits} \
             --eur_hits {input.eur_hits} \
             --covariates {input.cov} \
@@ -523,14 +539,13 @@ rule merge_data:
         conda deactivate
         """
 
-rule optimize_no_interaction:
+rule optimize:
     input:
-        merged=DATA_DIR + "MLE/merged_data.txt",
-        partition=DATA_DIR + "partition.txt"
+        merged=rules.merged_data.output.merged,
+        ascertainment=DATA_DIR + "ascertainment.txt"
     output:
-        delta=DATA_DIR + "MLE/{cov}/{group}.optimize_no_interaction_delta.txt",
-        betas=DATA_DIR + "MLE/{cov}/{group}.optimize_no_interaction_betas.txt",
-        resid=DATA_DIR + "MLE/{cov}/{group}.optimize_no_interaction_residuals.txt"
+        delta=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_delta.txt",
+        betas=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_betas.txt"
     params:
         cov=lambda wildcards: wildcards.cov.split('.'),
         dir=DATA_DIR + "MLE/{cov}"
@@ -538,27 +553,25 @@ rule optimize_no_interaction:
         """
         mkdir -p {params.dir}
         conda activate pystats
-        python scripts/iterative_parameter_optimization.py --merged {input.merged} \
-            --partition {input.partition} \
+        python {OPTIMIZE_SCRIPT} --merged {input.merged} \
+            --ascertainment {input.ascertainment} \
             --max_iter {MAX_ITER} \
             --covariates {params.cov} \
-            --unconstrained \
             --group {wildcards.group} \
-            --delta 0 \
-            --residuals {output.resid} \
+            --mode {wildcards.mode} \
             --betas_out {output.betas} \
             --delta_out {output.delta} 
         conda deactivate
         """
 
-rule optimize:
+rule optimize_remove_val:
     input:
-        merged=DATA_DIR + "MLE/merged_data.txt",
-        partition=DATA_DIR + "partition.txt"
+        merged=rules.merged_data.output.merged,
+        validation=DATA_DIR + "validation.txt",
+        ascertainment=DATA_DIR + "ascertainment.txt"
     output:
-        delta=DATA_DIR + "MLE/{cov}/{group}.optimize_delta.txt",
-        betas=DATA_DIR + "MLE/{cov}/{group}.optimize_betas.txt",
-        resid=DATA_DIR + "MLE/{cov}/{group}.optimize_residuals.txt"
+        delta=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_wo_val_delta.txt",
+        betas=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_wo_val_betas.txt",
     params:
         cov=lambda wildcards: wildcards.cov.split('.'),
         dir=DATA_DIR + "MLE/{cov}"
@@ -566,13 +579,13 @@ rule optimize:
         """
         mkdir -p {params.dir}
         conda activate pystats
-        python scripts/iterative_parameter_optimization.py --merged {input.merged} \
-            --partition {input.partition} \
+        python {OPTIMIZE_SCRIPT} --merged {input.merged} \
+            --validation {input.validation} \
+            --ascertainment {input.ascertainment} \
             --max_iter {MAX_ITER} \
             --covariates {params.cov} \
-            --unconstrained \
             --group {wildcards.group} \
-            --residuals {output.resid} \
+            --mode {wildcards.mode} \
             --betas_out {output.betas} \
             --delta_out {output.delta} 
         conda deactivate
@@ -615,7 +628,7 @@ rule optimize_simulated_data:
         """
         mkdir -p {params.dir}
         conda activate pystats
-        python scripts/iterative_parameter_optimization.py --merged {input} \
+        python {OPTIMIZE_SCRIPT} --merged {input} \
             --max_iter {MAX_ITER} \
             --covariates \
             --betas_out {output.betas} \
@@ -631,7 +644,7 @@ rule parse_simulation_results:
     shell:
         """
         conda activate pystats
-        python scripts/compute_bias_variance.py --delta_files {input} \
+        python {SIM_PARSER} --delta_files {input} \
             --simulated_delta {wildcards.delta} \
             --out {output}
         conda deactivate
@@ -639,8 +652,8 @@ rule parse_simulation_results:
 
 rule bootstrap:
     input:
-        merged=DATA_DIR + "MLE/merged_data.txt",
-        partition=DATA_DIR + "partition.txt"
+        merged=rules.merged_data.output.merged,
+        ascertainment=DATA_DIR + "ascertainment.txt"
     output:
         delta=temp(DATA_DIR + "MLE/{cov}/{group}.bootstrap.delta_{idx}.txt"),
         betas=temp(DATA_DIR + "MLE/{cov}/{group}.bootstrap.betas_{idx}.txt")
@@ -651,8 +664,8 @@ rule bootstrap:
         """
         mkdir -p {params.dir}
         conda activate pystats
-        python scripts/iterative_parameter_optimization.py --merged {input.merged} \
-            --partition {input.partition} \
+        python {OPTIMIZE_SCRIPT} --merged {input.merged} \
+            --ascertainment {input.ascertainment} \
             --max_iter {MAX_ITER} \
             --bootstrap \
             --group {wildcards.group} \
@@ -674,14 +687,14 @@ rule parse_bootstrap:
     shell:
         """
         conda activate py36
-        python scripts/parse_bootstrap.py --bootstrap_files {input} --out {params.prefix}
+        python {BOOTSTRAP_SCRIPT} --bootstrap_files {input} --out {params.prefix}
         conda deactivate
         """
 
 rule likelihood:
     input:
-        merged=DATA_DIR + "MLE/merged_data.txt",
-        partition=DATA_DIR + "partition.txt"
+        merged=rules.merged_data.output.merged,
+        ascertainment=DATA_DIR + "ascertainment.txt"
     output:
         DATA_DIR + "MLE/{cov}/{group}.likelihood_vs_delta.txt"
     params:
@@ -691,15 +704,15 @@ rule likelihood:
         """
         mkdir -p {params.dir}
         conda activate pystats
-        python scripts/compute_likelihood.py --merged {input.merged} \
-            --partition {input.partition} \
+        python {LIKELIHOOD_SCRIPT} --merged {input.merged} \
+            --ascertainment {input.ascertainment} \
             --group {wildcards.group} \
             --covariates {params.cov} \
             --out {output}
         conda deactivate
         """
 
-############################## MISC. ANALYSES #################################
+############################## MISC. ANALYSES ##################################
 
 rule sample_merged:
     input:
@@ -713,30 +726,13 @@ rule sample_merged:
 
 rule correlate_expression:
     input:
-        merged=DATA_DIR + "MLE/merged_data.txt"
-    output:
-        DATA_DIR + "correlation.expression_regressed.{cov_regress}.txt"
-    params:
-        cov_regress=lambda wildcards: wildcards.cov_regress.split('.')
-    shell:
-        """
-        conda activate pystats
-        python scripts/correlate_expression_genotype_PC.py \
-            --merged {input.merged} \
-            --covariates_to_regress {params.cov_regress} \
-            --out {output}
-        conda deactivate
-        """
-
-rule correlate_expression_noreg:
-    input:
-        merged=DATA_DIR + "MLE/merged_data.txt"
+        merged=rules.merged_data.output.merged
     output:
         DATA_DIR + "correlation.expression.txt"
     shell:
         """
         conda activate pystats
-        python scripts/correlate_expression_genotype_PC.py \
+        python {EXP_CORRELATION_SCRIPT} \
             --merged {input.merged} \
             --out {output}
         conda deactivate
@@ -752,24 +748,27 @@ rule std_dev_analysis:
     shell:
         """
         conda activate pystats
-        python scripts/std_dev_comparison.py
+        python {SD_SCRIPT}
         conda deactivate
         """
 
 rule anova_analysis:
     input:
-        betas="results/likelihood_model/v4.0/global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1/optimize_drop_asc_betas.txt",
-        delta="results/likelihood_model/v4.0/global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1/optimize_drop_asc_delta.txt",
-        merged="results/likelihood_model/v4.0/merged_data.txt"
+        betas=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_wo_val_betas.txt",
+        delta=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_wo_val_delta.txt",
+        merged=rules.merged_data.output.merged
+        validation=DATA_DIR + "validation.txt"
     output:
-        "results/likelihood_model/v4.0/anova_analysis.txt"
+        DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.ind_{ind}.optimize.anova_analysis.txt"
     shell:
         """
         conda activate pystats
-        python scripts/anova.py \
+        python {ANOVA_SCRIPT} \
             --merged {input.merged} \
             --betas {input.betas} \
             --delta {input.delta} \
+            --ind {wildcards.ind} \
+            --validation {input.validation} \
             --out {output}
         conda deactivate
         """

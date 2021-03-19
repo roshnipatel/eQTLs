@@ -12,34 +12,21 @@ def document_params(delta_file, betas_file, delta, betas):
         f.write(str(delta))
         f.write('\n')
 
-def calculate_residual(row, covariates):
-    res = np.array(row["expression"] - row["genotype_Afr"] * row["beta_Afr"] - row["genotype_Eur"] * row["beta_Eur"])
+def optimize_delta(df, covariates):
+    """Optimize delta in likelihood model using ordinary least squares 
+       linear regression."""
+    Y = np.array(df["expression"] - df["genotype_Afr"] * df["beta_Afr"] - 
+                 df["genotype_Eur"] * df["beta_Eur"])
     for cov in covariates:
-        res = res - row["int_" + cov] * row[cov]
-    res = res - (row["beta_Afr"] - row["beta_Eur"]) * row["genotype_Eur"] * row["race"]
-    return(res)
-
-def optimize_delta(df, covariates, unconstrained):
-    """Optimize delta in likelihood model using quadratic programming solver."""
-    b = np.array(df["expression"] - df["genotype_Afr"] * df["beta_Afr"] - df["genotype_Eur"] * df["beta_Eur"])
-    for cov in covariates:
-        b = b - df["int_" + cov] * df[cov]
-    A = np.array((df["beta_Afr"] - df["beta_Eur"]) * df["genotype_Eur"] * df["race"])
-    h = np.array([1, 0])
-    P = np.matrix(np.dot(A, A))
-    q = np.matrix(np.dot(A, -b))
-    G = np.array([1, -1])
-    delta = cp.Variable(1)
-    if unconstrained:
-        prob = cp.Problem(cp.Minimize((1/2)*cp.quad_form(delta, P) + q.T @ delta))
-    else:
-        prob = cp.Problem(cp.Minimize((1/2)*cp.quad_form(delta, P) + q.T @ delta), [G @ delta <= h])
-    prob.solve()
-    result = delta.value[0]
+        Y = Y - df["int_" + cov] * df[cov]
+    X = np.array((df["beta_Afr"] - df["beta_Eur"]) * 
+                 df["genotype_Eur"] * df["race"])
+    result = sm.OLS(Y, X).fit().params[0]
     return(result)
 
 def optimize_betas(group, covariates):
-    """Optimize betas/effects in likelihood model using ordinary least squares linear regression."""
+    """Optimize betas/effects in likelihood model using ordinary least squares 
+       linear regression."""
     beta_Afr = group["genotype_Afr"] + group["delta"] * group["genotype_Eur"] * group["race"]
     beta_Eur = group["genotype_Eur"] - group["delta"] * group["genotype_Eur"] * group["race"]
     Y = group["expression"]
@@ -47,7 +34,43 @@ def optimize_betas(group, covariates):
     for cov in covariates:
         df_dict["int_" + cov] = group[cov]
     df = pd.DataFrame(df_dict)
-    result = sm.OLS(df["Y"], df[["beta_Afr", "beta_Eur"] + ["int_" + cov for cov in covariates]]).fit().params
+    result = sm.OLS(df["Y"], df[["beta_Afr", "beta_Eur"] + 
+                    ["int_" + cov for cov in covariates]]).fit().params
+    return(result)
+
+def fit_no_beta(group, covariates):
+    """Optimize likelihood model without fitting SNP beta/effect using 
+       ordinary least squares linear regression."""
+    Y = group["expression"]
+    df_dict = {"Y": Y}
+    for cov in covariates:
+        df_dict["int_" + cov] = group[cov]
+    df = pd.DataFrame(df_dict)
+    if ("race_Afr" in covariates) and ("race_Eur" in covariates):
+        result = sm.OLS(df["Y"], 
+                        df[["int_" + cov for cov in covariates]]).fit().params
+    else:
+        df["intercept"] = 1
+        result = sm.OLS(df["Y"], df[["intercept"] + 
+                        ["int_" + cov for cov in covariates]]).fit().params
+    return(result)
+
+def fit_single_beta(group, covariates):
+    """Optimize single beta in likelihood model using ordinary least squares 
+       linear regression."""
+    beta = group["genotype_Afr"] + group["genotype_Eur"]
+    Y = group["expression"]
+    df_dict = {"Y": Y, "beta": beta}
+    for cov in covariates:
+        df_dict["int_" + cov] = group[cov]
+    df = pd.DataFrame(df_dict)
+    if ("race_Afr" in covariates) and ("race_Eur" in covariates):
+        result = sm.OLS(df["Y"], df[["beta"] + 
+                        ["int_" + cov for cov in covariates]]).fit().params
+    else:
+        df["intercept"] = 1
+        result = sm.OLS(df["Y"], df[["beta", "intercept"] + 
+                        ["int_" + cov for cov in covariates]]).fit().params
     return(result)
 
 def update_params(df, covariates, betas=None, delta=None):
@@ -61,25 +84,32 @@ def update_params(df, covariates, betas=None, delta=None):
     return(df)
 
 def neg_control(group):
-    """Exclude African-American ancestry-heterozygous individuals. Randomly assign a subset of 100 European-
-       Americans to be a validation set; code as African-Americans in order to perform negative control."""
-    val_idv = np.random.choice(group.loc[group.race == 0, "nwd_id"].values, size=100, replace=False)
+    """Exclude African-American ancestry-heterozygous individuals. Randomly 
+       assign a subset of 100 European-Americans to be a validation set; 
+       code as African-Americans in order to perform negative control."""
+    val_idv = np.random.choice(group.loc[group.race == 0, "nwd_id"].values, 
+                               size=100, replace=False)
     group_subset = group[-((group.race == 1) & (group.local_ancestry < 2))]
-    group_subset["race"] = group_subset.apply(lambda row: 1 if row.nwd_id in val_idv else row.race, axis=1, result_type='expand')
+    group_subset["race"] = group_subset.apply(lambda row: 1 if row.nwd_id in val_idv 
+                                              else row.race, axis=1, result_type='expand')
     return(group_subset)
 
-def remove_asc(group, partition_matrix):
-    """Remove European ascertainment individuals from dataset for optimizing likelihood model. These 
-       individuals were used to select the genes/variants we are optimizing the model on, so inclusion
-       of these individuals will result in inflated European effect sizes."""
+def remove_ind(group, partition_matrix):
+    """Remove European ascertainment individuals from dataset for optimizing 
+       likelihood model. These individuals were used to select the genes/variants 
+       we are optimizing the model on, so inclusion of these individuals will 
+       result in inflated European effect sizes."""
     gene = group.name
     asc_idv = partition_matrix.loc[gene, partition_matrix.loc[gene] == 1].index
     return(group[-group.nwd_id.isin(asc_idv)])
 
 def bootstrap_data(all_df):
-    """Generate one random sample (with replacement) from the input dataframe. Size of sample is 
-       specified by number of genes in input dataframe."""
-    def decrement(d): # No return statement because dictionaries are modified in-place
+    """Generate one random sample (with replacement) from the input dataframe. 
+       Size of sample is specified by number of genes in input dataframe."""
+    def decrement(d): 
+        """For all keys in input dictionary, decrement values by 1. If value equals
+           0, remove key from dictionary. Function has no return statement 
+           because dictionaries are modified in-place."""
         keys_to_drop = []
         for key, val in d.items():
             val = val - 1
@@ -90,6 +120,8 @@ def bootstrap_data(all_df):
         for key in keys_to_drop:
             del d[key]
 
+    # Randomly sample over genes with replacement and document number of samples 
+    # for each gene in dictionary
     gene_list = all_df["gene"].unique()
     n_genes = len(gene_list)
     bootstrap_list = np.random.choice(gene_list, n_genes, replace=True)
@@ -97,6 +129,9 @@ def bootstrap_data(all_df):
     for gene in bootstrap_list:
         bootstrap_dict[gene] = bootstrap_dict.get(gene, 0) + 1
 
+    # Subset full dataset for all genes in bootstrap dictionary. Then decrement
+    # values for all genes in dictionary, removing gene if value reaches 0.
+    # Repeat until dictionary is empty.
     bootstrap_df = pd.DataFrame()
     while bootstrap_dict:
         tmp_df = all_df[all_df["gene"].isin(bootstrap_dict.keys())]
@@ -112,16 +147,39 @@ if __name__ == '__main__':
     parser.add_argument('--delta_out')
     parser.add_argument('--betas_out')
     parser.add_argument('--group')
-    parser.add_argument('--partition')
+    parser.add_argument('--mode')
+    parser.add_argument('--ascertainment')
+    parser.add_argument('--validation', default=None)
     parser.add_argument('--covariates', nargs='*')
     parser.add_argument('--delta', default=None)
-    parser.add_argument('--residuals', default=None)
     parser.add_argument('--bootstrap', action='store_true')
-    parser.add_argument('--unconstrained', action='store_true')
+    parser.add_argument('--single_beta', action='store_true')
+    parser.add_argument('--no_beta', action='store_true')
     args = parser.parse_args()
 
     merged_data = pd.read_csv(args.merged, sep='\t')
-    merged_data = merged_data[args.covariates + ["genotype_Afr", "genotype_Eur", "expression", "nwd_id", "gene", "race"]]
+    col_names = args.covariates + ["genotype_Afr", "genotype_Eur", "expression", 
+                                   "nwd_id", "gene", "race"]
+    merged_data = merged_data[col_names]
+
+    # Remove ascertainment individuals to avoid biasing parameter estimation
+    ascertainment_matrix = pd.read_csv(args.ascertainment, sep='\t', index_col=0)
+    merged_data = merged_data.groupby("gene").apply(lambda grp: 
+        remove_ind(grp, ascertainment_matrix)).reset_index(drop=True)
+
+    # If estimating parameters for negative control, massage data accordingly
+    if args.group == "control":
+        merged_data = merged_data.groupby("gene").apply(neg_control).reset_index(drop=True)
+
+    # Optionally bootstrap over data, randomly sampling genes with replacement
+    if args.bootstrap:
+        merged_data = bootstrap_data(merged_data)
+
+    # If validation matrix provided, remove those individuals before estimating parameters
+    if args.validation:
+        validation_matrix = pd.read_csv(args.validation, sep='\t', index_col=0)
+        merged_data = merged_data.groupby("gene").apply(lambda grp: 
+            remove_ind(grp, validation_matrix)).reset_index(drop=True)
     
     # Initialize empty parameter columns
     merged_data["beta_Afr"] = None
@@ -129,29 +187,31 @@ if __name__ == '__main__':
     for cov in args.covariates:
         merged_data["int_" + cov] = None
 
-    # Remove ascertainment individuals to avoid biasing parameter estimation
-    partition_matrix = pd.read_csv(args.partition, sep='\t', index_col=0)
-    merged_data = merged_data.groupby("gene").apply(lambda grp: remove_asc(grp, partition_matrix)).reset_index(drop=True)
-
-    # Deal with command line arguments/options
-    if args.group == "control":
-        merged_data = merged_data.groupby("gene").apply(neg_control).reset_index(drop=True)
-    if args.bootstrap:
-        merged_data = bootstrap_data(merged_data)
-
-    if args.delta is not None: # Optimize betas for a user-specified delta + write to file
-        curr_delta = args.delta
+    # Optimize parameters
+    if args.delta is not None: # Fit user-specified delta
+        curr_delta = float(args.delta)
         merged_data = update_params(merged_data, args.covariates, delta=curr_delta)
         curr_betas = merged_data.groupby("gene").apply(lambda group: optimize_betas(group, args.covariates))
         merged_data = update_params(merged_data, args.covariates, betas=curr_betas)
         document_params(args.delta_out, args.betas_out, curr_delta, curr_betas)
-    else: # Iteratively optimize delta + betas
+    elif args.mode != "fit_delta": # Fit model without delta
+        curr_delta = 0
+        merged_data = update_params(merged_data, args.covariates, delta=curr_delta)
+        if args.mode == "fit_no_beta":
+            curr_betas = merged_data.groupby("gene").apply(lambda group: fit_no_beta(group, args.covariates))
+        elif args.mode == "fit_single_beta":
+            curr_betas = merged_data.groupby("gene").apply(lambda group: fit_single_beta(group, args.covariates))
+        elif args.mode == "no_interaction":
+            curr_betas = merged_data.groupby("gene").apply(lambda group: optimize_betas(group, args.covariates))
+        merged_data = update_params(merged_data, args.covariates, betas=curr_betas)
+        document_params(args.delta_out, args.betas_out, curr_delta, curr_betas)
+    elif args.mode == "fit_delta": # Fit model with delta, iteratively optimizing delta + betas
         prev_delta = -1 # Ensures we do 1+ iterations
         for i in range(int(args.max_iter)):
             if i == 0:
                 curr_delta = np.random.uniform(0, 1)
             else:
-                curr_delta = optimize_delta(merged_data, args.covariates, args.unconstrained)
+                curr_delta = optimize_delta(merged_data, args.covariates)
             if (abs(curr_delta - prev_delta) < .0001):
                 break
             merged_data = update_params(merged_data, args.covariates, delta=curr_delta)
@@ -159,8 +219,4 @@ if __name__ == '__main__':
             curr_betas = merged_data.groupby("gene").apply(lambda group: optimize_betas(group, args.covariates))
             merged_data = update_params(merged_data, args.covariates, betas=curr_betas)
             document_params(args.delta_out, args.betas_out, curr_delta, curr_betas)
-
-    if args.residuals is not None: # Write residuals to file
-        fitted_residuals = merged_data.apply(lambda row: calculate_residual(row, args.covariates), axis=1)
-        fitted_residuals.to_csv(args.residuals, index=False)
 
