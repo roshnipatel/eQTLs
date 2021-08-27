@@ -7,8 +7,8 @@
         "memory"    : 300,
         "time"      : "5:00",
         "name"      : "{rule}",
-        "output"    : "slurm/{rule}.out",
-        "error"     : "slurm/{rule}.err"
+        "output"    : "/scratch/groups/pritch/roshni/admixedPGS/eQTLs/slurm/{rule}.out",
+        "error"     : "/scratch/groups/pritch/roshni/admixedPGS/eQTLs/slurm/{rule}.err"
     },
     "annotate_genes":
     {
@@ -73,16 +73,17 @@
     {
         "memory"    : 1000
     },
-    "call_eQTLs":
+    "ascertain_effect_sizes":
     {
-        "time"      : "10:00"
+        "memory"    : 500,
+        "time"      : "40:00"
     },
-    "merge_reestimation":
+    "concat_estimation":
     {
         "time"      : "4:00:00",
         "memory"    : 3000
     },
-    "merge_ascertainment":
+    "concat_ascertainment":
     {
         "time"      : "4:00:00",
         "memory"    : 3000
@@ -96,15 +97,24 @@
     {
         "memory"    : 3000
     },
-    "perform_simulation":
+    "simulate_betas":
     {
-        "time"      : "30:00",
+        "memory"    : 2000
+    },
+    "simulate_data":
+    {
+        "time"      : "20:00",
         "memory"    : 20000
     },
     "merge_data":
     {
         "time"      : "2:00:00",
         "memory"    : 30000
+    },
+    "jackknife":
+    {
+        "time"      : "15:00",
+        "memory"    : 5000
     },
     "bootstrap":
     {
@@ -136,14 +146,24 @@
         "time"      : "15:00",
         "memory"    : 10000
     },
+    "PGS_PVE_analysis":
+    {
+        "time"      : "2:00:00",
+        "memory"    : 5000
+    },
     "optimize":
+    {
+        "time"      : "15:00",
+        "memory"    : 5000
+    },
+    "optimize_idv_bin":
     {
         "time"      : "15:00",
         "memory"    : 5000
     },
     "optimize_remove_val":
     {
-        "time"      : "15:00",
+        "time"      : "30:00",
         "memory"    : 5000
     },
     "likelihood":

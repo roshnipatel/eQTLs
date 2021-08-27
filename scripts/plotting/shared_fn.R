@@ -45,10 +45,11 @@ one_dim_PCA = function(tib) {
 }
 
 bootstrap.TLS <- function(tib) {
-  n = nrow(tib)
-  slopes = rep(0, n)
-  for (i in 1:n) {
-    samp = tib %>% sample_n(n, TRUE)
+  n_samp = nrow(tib)
+  n_rep = 1000
+  slopes = rep(0, n_rep)
+  for (i in 1:n_rep) {
+    samp = tib %>% sample_n(n_samp, TRUE)
     samp_slope = one_dim_PCA(samp)[[1]]
     slopes[i] = samp_slope
   }

@@ -13,3 +13,5 @@ scripts/slurm_submission
 scripts/single_use
 results
 results/*
+protected_data
+protected_data/*

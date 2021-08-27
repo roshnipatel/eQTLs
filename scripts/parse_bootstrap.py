@@ -11,8 +11,10 @@ if __name__ == '__main__':
     # Combine estimates of delta from all bootstrap iterations
     delta_vals = []
     for path in args.bootstrap_files:
+        print(path)
         with open(path, 'r') as f:
             final_delta = float(f.readlines()[-1])
+            print(final_delta)
         delta_vals.append(final_delta)
     delta_vals = np.array(delta_vals)
     lower = np.quantile(delta_vals, .025)

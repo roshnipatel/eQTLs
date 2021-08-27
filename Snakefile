@@ -15,53 +15,52 @@ SINGLE_BETA_COV_LIST = ["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_ce
 NO_INT_COV_LIST = ["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"]
 COV_LIST = ["global_ancestry.local_ancestry.race_Afr.race_Eur.seq_center.exam.genotype_PC1"]
 GROUPS = ["test", "control"]
-IND_SUBSETS = ["all", "AAEur", "AAAfr", "EA"]
+IND_SUBSETS = ["AA", "EA"]
 
 rule all:
     input:
         ### For eQTL calling
-        DATA_DIR + "QTL_output/randsamp_merged_ascertainment_Eur.txt",
-        DATA_DIR + "QTL_output/randsamp_merged_reestimation_primary_Eur.txt",
-        DATA_DIR + "QTL_output/randsamp_merged_reestimation_validation_Eur.txt",
-        DATA_DIR + "QTL_output/randsamp_merged_reestimation_validation_Afr.txt",
-        DATA_DIR + "QTL_output/randsamp_merged_reestimation_primary_het.txt",
-        DATA_DIR + "QTL_output/randsamp_merged_reestimation_primary_Afr.txt",
-        DATA_DIR + "QTL_output/hits_ascertainment_" + ASC_POP + ".txt",
-        DATA_DIR + "QTL_output/hits_reestimation_validation_Eur.txt",
-        DATA_DIR + "QTL_output/hits_reestimation_validation_Afr.txt",
-        DATA_DIR + "QTL_output/hits_reestimation_primary_Eur.txt",
-        DATA_DIR + "QTL_output/hits_reestimation_primary_het.txt",
-        DATA_DIR + "QTL_output/hits_reestimation_primary_Afr.txt",
+        # DATA_DIR + "QTL_output/hits_ascertainment_" + ASC_POP + ".txt",
+        # DATA_DIR + "QTL_output/hits_reestimation_primary_EA.txt",
+        # DATA_DIR + "QTL_output/hits_reestimation_primary_AA.txt",
+        # DATA_DIR + "QTL_output/hits_reestimation_primary_Eur.txt",
+        # DATA_DIR + "QTL_output/hits_reestimation_primary_Afr.txt",
         # 
         ### For likelihood model stuff:
-        DATA_DIR + "MLE/merged_data.txt",
-        expand(DATA_DIR + "MLE/{cov}/{group}.mode_fit_delta.optimize_{param}.txt", 
-               param=["delta", "betas"], cov=COV_LIST, group=GROUPS),
-        expand(DATA_DIR + "MLE/{cov}/{group}.bootstrap_summary.txt", 
-               cov=COV_LIST, group=GROUPS),
-        expand(DATA_DIR + "MLE/{cov}/{group}.likelihood_vs_delta.txt", 
-               cov=COV_LIST, group=GROUPS),
-        expand(DATA_DIR + "MLE/{cov}/{group}.mode_fit_delta.ind_{ind}.optimize.anova_analysis.txt", 
-               cov=COV_LIST, group=["test"], ind=IND_SUBSETS),
-        expand(DATA_DIR + "MLE/{cov}/{group}.mode_fit_no_beta.ind_all.optimize.anova_analysis.txt", 
-               cov=NO_BETA_COV_LIST, group=["test"]),
-        expand(DATA_DIR + "MLE/{cov}/{group}.mode_fit_single_beta.ind_all.optimize.anova_analysis.txt", 
-               cov=SINGLE_BETA_COV_LIST, group=["test"]),
-        expand(DATA_DIR + "MLE/{cov}/{group}.mode_no_interaction.ind_{ind}.optimize.anova_analysis.txt", 
-               cov=NO_INT_COV_LIST, group=["test"], ind=IND_SUBSETS),
-        # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.13, 0.17, 0.30], corr=[0.8], n_snp=[3200], n_idv=["200_150"]),
-        # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.5, 0.8, 0.9], n_snp=[3200], n_idv=["200_150"]),
-        # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.8], n_snp=[1000, 3200, 6000], n_idv=["200_150"]),
-        # expand(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt", delta=[0, 0.5], eur_error=[0.12], afr_error=[0.17], corr=[0.8], n_snp=[3200], n_idv=["200_150", "350_150", "500_300"])
-        #
+        # PROTECTED_DATA_DIR + "merged_data.txt",
+        # expand(DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_delta.optimize_{param}.txt", 
+        #        param=["delta", "betas"], cov=COV_LIST, group=GROUPS),
+        # expand(DATA_DIR + "model_fitting/{cov}/test.mode_fit_delta.idv_bin_{bin}.optimize_{param}.txt", 
+        #        param=["delta", "betas"], cov=COV_LIST, bin=[1, 2, 3, 4, "low", "high"]),
+        expand(DATA_DIR + "model_fitting/{cov}/test.jackknife_summary.txt", 
+               cov=COV_LIST),
+        # expand(DATA_DIR + "model_fitting/{cov}/test.idv_bin_{bin}.bootstrap_summary.txt", 
+        #        cov=COV_LIST, bin=[1, 2, 3, 4, "low", "high"]),
+        # expand(DATA_DIR + "model_fitting/{cov}/{group}.likelihood_vs_delta.txt", 
+        #        cov=COV_LIST, group=GROUPS),
+        # expand(DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_delta.ind_{ind}.optimize.anova_analysis.txt", 
+        #        cov=COV_LIST, group=["test"], ind=IND_SUBSETS),
+        # expand(DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_no_beta.ind_all.optimize.anova_analysis.txt", 
+        #        cov=NO_BETA_COV_LIST, group=["test"]),
+        # expand(DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_single_beta.ind_all.optimize.anova_analysis.txt", 
+        #        cov=SINGLE_BETA_COV_LIST, group=["test"]),
+        # expand(DATA_DIR + "model_fitting/{cov}/{group}.mode_no_interaction.ind_{ind}.optimize.anova_analysis.txt", 
+        #        cov=NO_INT_COV_LIST, group=["test"], ind=IND_SUBSETS),
+        # expand(DATA_DIR + "model_fitting/simulated_data/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}/betas.txt", 
+        #        var_afr=[0.08], var_eur=[0.15], eur_error=[0.12], afr_error=[0.17]),
+        # expand(DATA_DIR + "model_fitting/simulated_optimization/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}/combined_optimization_outputs.txt", 
+        #        eur_error=[0.12], afr_error=[0.17], 
+        #        var_afr=[0.08], var_eur=[0.15])
+        expand(DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_delta.ind_{ind}.optimize.PGS_PVE_analysis.txt",
+               cov=COV_LIST, group="test", ind=["EA", "AA"])
         ### For covariate/PC stuff:
-        DATA_DIR + "correlation.expression.txt"
+        # DATA_DIR + "correlation.expression.txt"
 
 ########################### GENERATE GENE ANNOTATION ###########################
 
 rule annotate_genes:
     input:
-        DATA_DIR + GENCODE_ANNO 
+        DATA_DIR + GENCODE_ANNO
     output:
         DATA_DIR + "gencode.v30.genes.gtf"
     shell:
@@ -75,8 +74,8 @@ rule annotate_genes:
 
 rule select_samples:
     input:
-        sample_data=DATA_DIR + RNASEQ_METADATA,
-        exclusion_list=EXCLUSION_FILE
+        sample_data=PROTECTED_DATA_DIR + RNASEQ_METADATA,
+        exclusion_list=PROTECTED_DATA_DIR + EXCLUSION_FILE
     output:
         expand(DATA_DIR + "select_samples_{anc}.txt", anc=["Afr", "Eur"])
     params:
@@ -93,7 +92,7 @@ rule select_samples:
 
 rule make_chr_list:
     input:
-        vcf=ancient(DATA_DIR + VCF)
+        vcf=PROTECTED_DATA_DIR + VCF
     output:
         chr_list=DATA_DIR + "chr_list.txt"
     shell:
@@ -105,17 +104,17 @@ rule make_chr_list:
 
 rule normalize_expression:
     input:
-        tpm=DATA_DIR + TPM,
-        counts=DATA_DIR + READS,
+        tpm=PROTECTED_DATA_DIR + TPM,
+        counts=PROTECTED_DATA_DIR + READS,
         anno=rules.annotate_genes.output,
         sample_map=DATA_DIR + "select_samples_{anc}.txt",
         chr_list=rules.make_chr_list.output,
         flag=DATA_DIR + "vcf_filter_{anc}.done"
     output:
-        bed=DATA_DIR + "mesa.{anc}.expression.bed.gz",
-        idx=DATA_DIR + "mesa.{anc}.expression.bed.gz.tbi"
+        bed=PROTECTED_DATA_DIR + "mesa.{anc}.expression.bed.gz",
+        idx=PROTECTED_DATA_DIR + "mesa.{anc}.expression.bed.gz.tbi"
     params:
-        prefix=DATA_DIR + "mesa.{anc}"
+        prefix=PROTECTED_DATA_DIR + "mesa.{anc}"
     shell:
         """
         conda activate norm-exp-env
@@ -143,10 +142,10 @@ rule make_gene_list:
 
 rule snp_filter:
     input:
-        vcf=ancient(DATA_DIR + VCF)
+        vcf=PROTECTED_DATA_DIR + VCF
     output:
-        vcf=DATA_DIR + "mesa.filt.bcf.gz",
-        idx=DATA_DIR + "mesa.filt.bcf.gz.csi"
+        vcf=PROTECTED_DATA_DIR + "mesa.filt.bcf.gz",
+        idx=PROTECTED_DATA_DIR + "mesa.filt.bcf.gz.csi"
     shell:
         """
         conda activate bcftools-env
@@ -160,8 +159,8 @@ rule indiv_filter:
         vcf=rules.snp_filter.output.vcf,
         samples=DATA_DIR + "select_samples_{anc}.txt"
     output:
-        vcf=DATA_DIR + "mesa.{anc,[A-Za-z]+}.bcf.gz",
-        idx=DATA_DIR + "mesa.{anc,[A-Za-z]+}.bcf.gz.csi",
+        vcf=PROTECTED_DATA_DIR + "mesa.{anc,[A-Za-z]+}.bcf.gz",
+        idx=PROTECTED_DATA_DIR + "mesa.{anc,[A-Za-z]+}.bcf.gz.csi",
         flag=DATA_DIR + "vcf_filter_{anc}.done"
     shell:
         """
@@ -181,8 +180,8 @@ rule MAF_filter:
     input:
         rules.indiv_filter.output.vcf
     output:
-        vcf=DATA_DIR + "mesa.{anc}.maf05.vcf.gz",
-        idx=DATA_DIR + "mesa.{anc}.maf05.vcf.gz.csi"
+        vcf=PROTECTED_DATA_DIR + "mesa.{anc}.maf05.vcf.gz",
+        idx=PROTECTED_DATA_DIR + "mesa.{anc}.maf05.vcf.gz.csi"
     shell:
         """
         conda activate bcftools-env
@@ -195,8 +194,8 @@ rule find_indep_snps:
     input:
         vcf=rules.MAF_filter.output.vcf
     output:
-        keep=temp(DATA_DIR + "mesa.{anc}.maf05.prune.in"),
-        exclude=temp(expand(DATA_DIR + "mesa.{{anc}}.maf05.{ext}", 
+        keep=temp(PROTECTED_DATA_DIR + "mesa.{anc}.maf05.prune.in"),
+        exclude=temp(expand(PROTECTED_DATA_DIR + "mesa.{{anc}}.maf05.{ext}", 
                             ext=["log", "nosex", "prune.out"]))
     params:
         prefix=lambda wildcards, output: output.keep[:-9]
@@ -213,7 +212,7 @@ rule prune:
         vcf=rules.MAF_filter.output.vcf,
         snps=rules.find_indep_snps.output.keep
     output:
-        DATA_DIR + "mesa.{anc}.prune.maf05.vcf.gz"
+        PROTECTED_DATA_DIR + "mesa.{anc}.prune.maf05.vcf.gz"
     shell:
         """
         conda activate bcftools-env
@@ -223,7 +222,7 @@ rule prune:
 
 rule PCA:
     input:
-        expand(DATA_DIR + "mesa.{anc}.{{filetype}}.gz", anc=["Afr", "Eur"])
+        expand(PROTECTED_DATA_DIR + "mesa.{anc}.{{filetype}}.gz", anc=["Afr", "Eur"])
     output:
         pc=DATA_DIR + "mesa.{filetype}.principal_components.txt",
         eig=DATA_DIR + "mesa.{filetype}.eigenvalues.txt"
@@ -243,12 +242,12 @@ rule PCA:
 rule prep_covariates:
     input:
         samples=expand(DATA_DIR + "select_samples_{anc}.txt", anc=["Afr", "Eur"]),
-        ganc=DATA_DIR + "combined_global_anc_frac.txt",
+        ganc=PROTECTED_DATA_DIR + "combined_global_anc_frac.txt",
         pc=expand(rules.PCA.output.pc, filetype=["prune.maf05.vcf", "expression.bed"]),
-        sample_data=DATA_DIR + RNASEQ_METADATA,
+        sample_data=PROTECTED_DATA_DIR + RNASEQ_METADATA,
         flag=expand(DATA_DIR + "vcf_filter_{anc}.done", anc=["Afr", "Eur"])
     output:
-        DATA_DIR + "mesa.sample_covariates.txt"
+        PROTECTED_DATA_DIR + "mesa.sample_covariates.txt"
     shell:
         """
         conda activate pystats
@@ -261,23 +260,33 @@ rule prep_covariates:
         conda deactivate
         """
 
-rule extract_linreg_covariates:
+rule extract_linreg_covariates_afr:
     input:
-        DATA_DIR + "mesa.sample_covariates.txt"
+        PROTECTED_DATA_DIR + "mesa.sample_covariates.txt"
     output:
-        DATA_DIR + "mesa.sample_covariates_for_regression.txt"
+        PROTECTED_DATA_DIR + "mesa.Afr.sample_covariates_for_regression.txt"
     shell:
         """
-        cut -f 2,3,4,10 {input} > {output}
+        cut -f 2,3,4,6,8 {input} > {output}
+        """
+
+rule extract_linreg_covariates_eur:
+    input:
+        PROTECTED_DATA_DIR + "mesa.sample_covariates.txt"
+    output:
+        PROTECTED_DATA_DIR + "mesa.Eur.sample_covariates_for_regression.txt"
+    shell:
+        """
+        cut -f 2,3,4,6,10 {input} > {output}
         """
 
 ############################## PARTITION SAMPLES ###############################
 
 rule make_anc_bed:
     input:
-        expand(BED_DIR + "chr{chr}/job_complete.txt", chr=CHROMS)
+        expand(PROTECTED_DATA_DIR + BED_DIR + "chr{chr}/job_complete.txt", chr=CHROMS)
     output:
-        DATA_DIR + "anc_tracts.bed"
+        PROTECTED_DATA_DIR + "anc_tracts.bed"
     params:
         dir=BED_DIR
     shell:
@@ -308,7 +317,7 @@ rule intersect_tracts_genes:
         tracts=rules.make_anc_bed.output,
         genes=rules.make_genes_bed.output
     output:
-        DATA_DIR + "intersection_anc_genes.bed"
+        PROTECTED_DATA_DIR + "intersection_anc_genes.bed"
     shell:
         """
         conda activate bedtools
@@ -334,10 +343,9 @@ checkpoint partition_samples:
         mkdir -p {params.output_dir}/ascertainment/Eur
         mkdir -p {params.output_dir}/ascertainment/Afr
         mkdir -p {params.output_dir}/reestimation_primary/Afr
-        mkdir -p {params.output_dir}/reestimation_primary/het
         mkdir -p {params.output_dir}/reestimation_primary/Eur
-        mkdir -p {params.output_dir}/reestimation_validation/Eur
-        mkdir -p {params.output_dir}/reestimation_validation/Afr
+        mkdir -p {params.output_dir}/reestimation_primary/AA
+        mkdir -p {params.output_dir}/reestimation_primary/EA
         conda activate py36
         python {PARTITION_SCRIPT} \
             --intersect {input.intersect} \
@@ -345,10 +353,9 @@ checkpoint partition_samples:
             --eur_samples {input.eur_samples} \
             --genes {input.genes} \
             --ascertainment {output[1]} \
-            --validation {output[2]}
-            --afr_validation_run \
+            --validation {output[2]} \
             --ascertainment_pop {ASC_POP} \
-            --out_dir {params.output_dir} \
+            --out_dir {params.output_dir}
         conda deactivate
         """
 
@@ -356,13 +363,13 @@ checkpoint partition_samples:
 
 rule subset_geno:
     input:
-        vcf=DATA_DIR + "mesa.{anc}.maf05.vcf.gz",
-        idx=DATA_DIR + "mesa.{anc}.maf05.vcf.gz.csi",
+        vcf=PROTECTED_DATA_DIR + "mesa.{anc}.maf05.vcf.gz",
+        idx=PROTECTED_DATA_DIR + "mesa.{anc}.maf05.vcf.gz.csi",
         gene_window=rules.make_genes_bed.output
     output:
-        DATA_DIR + "QTL_geno_input/{anc}/{gene}.vcf.gz"
+        PROTECTED_DATA_DIR + "QTL_geno_input/{anc}/{gene}.vcf.gz"
     params:
-        out_dir=DATA_DIR + "QTL_geno_input/{anc}"
+        out_dir=PROTECTED_DATA_DIR + "QTL_geno_input/{anc}"
     shell:
         """
         mkdir -p {params.out_dir}
@@ -377,31 +384,66 @@ rule subset_geno:
 
 rule subset_pheno:
     input:
-        bed=DATA_DIR + "mesa.{anc}.expression.bed.gz"
+        bed=PROTECTED_DATA_DIR + "mesa.{anc}.expression.bed.gz"
     output:
-        DATA_DIR + "QTL_pheno_input/{anc}/{gene}.txt"
+        PROTECTED_DATA_DIR + "QTL_pheno_input/{anc}/{gene}.txt"
     params:
-        out_dir=DATA_DIR + "QTL_pheno_input/{anc}"
+        out_dir=PROTECTED_DATA_DIR + "QTL_pheno_input/{anc}"
     shell:
         """
         mkdir -p {params.out_dir}
         cat <(zcat {input.bed} | head -n 1) <(zgrep -m 1 {wildcards.gene} {input.bed}) > {output}
         """
 
+# We have a separate rule for ascertaining SNPs vs estimating effect sizes in case
+# we want to use permutations for ascertainment.
+rule ascertain_effect_sizes:
+    input:
+        geno_input=lambda wildcards: expand(rules.subset_geno.output, anc="Eur", \
+            gene=wildcards.gene) if wildcards.anc[0] == "E" else \
+            expand(rules.subset_geno.output, anc="Afr", gene=wildcards.gene),
+        pheno_input=lambda wildcards: expand(rules.subset_pheno.output, anc="Eur", \
+            gene=wildcards.gene) if wildcards.anc[0] == "E" else \
+            expand(rules.subset_pheno.output, anc="Afr", gene=wildcards.gene),
+        sample_input=DATA_DIR + "QTL_sample_input/ascertainment/{anc}/{gene}.txt",
+        covariates=lambda wildcards: PROTECTED_DATA_DIR + \
+            "mesa.Eur.sample_covariates_for_regression.txt" if \
+            wildcards.anc[0] == "E" else PROTECTED_DATA_DIR + \
+            "mesa.Afr.sample_covariates_for_regression.txt"
+    output:
+        DATA_DIR + "QTL_output/ascertainment/{anc}/{gene}.txt"
+    params:
+        output_dir=DATA_DIR + "QTL_output/ascertainment/{anc}"
+    shell:
+        """
+        mkdir -p {params.output_dir}
+        conda activate pystats
+        python {ESTIMATION_SCRIPT} \
+            --genotypes {input.geno_input} \
+            --phenotypes {input.pheno_input} \
+            --samples {input.sample_input} \
+            --covariates {input.covariates} \
+            --out {output} \
+        conda deactivate
+        """
+
 rule estimate_effect_sizes:
     input:
         geno_input=lambda wildcards: expand(rules.subset_geno.output, anc="Eur", \
-            gene=wildcards.gene) if wildcards.anc == "Eur" else \
+            gene=wildcards.gene) if wildcards.anc[0] == "E" else \
             expand(rules.subset_geno.output, anc="Afr", gene=wildcards.gene),
         pheno_input=lambda wildcards: expand(rules.subset_pheno.output, anc="Eur", \
-            gene=wildcards.gene) if wildcards.anc == "Eur" else \
+            gene=wildcards.gene) if wildcards.anc[0] == "E" else \
             expand(rules.subset_pheno.output, anc="Afr", gene=wildcards.gene),
-        sample_input=DATA_DIR + "QTL_sample_input/{type}/{anc}/{gene}.txt",
-        covariates=DATA_DIR + "mesa.sample_covariates_for_regression.txt"
+        sample_input=DATA_DIR + "QTL_sample_input/reestimation_{type}/{anc}/{gene}.txt",
+        covariates=lambda wildcards: PROTECTED_DATA_DIR + \
+            "mesa.Eur.sample_covariates_for_regression.txt" if \
+            wildcards.anc[0] == "E" else PROTECTED_DATA_DIR + \
+            "mesa.Afr.sample_covariates_for_regression.txt"
     output:
-        DATA_DIR + "QTL_output/{type}/{anc}/{gene}.txt"
+        DATA_DIR + "QTL_output/{type}/reestimation_{anc}/{gene}.txt"
     params:
-        output_dir=DATA_DIR + "QTL_output/{type}/{anc}"
+        output_dir=DATA_DIR + "QTL_output/reestimation_{type}/{anc}"
     shell:
         """
         mkdir -p {params.output_dir}
@@ -418,11 +460,12 @@ rule estimate_effect_sizes:
 def concat_asc_input(wildcards):
     checkpoint_output = checkpoints.partition_samples.get(**wildcards).output[0]
     return expand(DATA_DIR + "QTL_output/ascertainment/{anc}/{gene}.txt",
+                  anc=wildcards.anc,
                   gene=glob_wildcards(os.path.join(checkpoint_output, "ascertainment", 
                                       wildcards.anc, "{gene}.txt")).gene)
 
 def concat_est_input(wildcards):
-    checkpoint_output = checkpoints.identify_hits.get(**wildcards).output[0]
+    checkpoint_output = checkpoints.identify_hits.get(**{"anc": ASC_POP}).output[0]
     sig_genes = list(pd.read_csv(checkpoint_output, sep='\t')["gene"])
     return expand(DATA_DIR + "QTL_output/reestimation_{type}/{anc}/{gene}.txt",
                   type=wildcards.type, anc=wildcards.anc,
@@ -511,22 +554,22 @@ def expand_geno_pheno_data(wildcards):
     with open(checkpoints.extract_hits.get(type="primary", anc="Eur").output[0], 'r') as f:
         eur_genes = fetch_genes(f)
     common_genes = list(set(afr_genes) & set(eur_genes))
-    return(expand(DATA_DIR + "QTL_geno_input/{anc}/{gene}.vcf.gz", 
+    return(expand(PROTECTED_DATA_DIR + "QTL_geno_input/{anc}/{gene}.vcf.gz", 
                   anc=["Afr", "Eur"], gene=common_genes) + 
-           expand(DATA_DIR + "QTL_pheno_input/{anc}/{gene}.txt", 
+           expand(PROTECTED_DATA_DIR + "QTL_pheno_input/{anc}/{gene}.txt", 
                   anc=["Afr", "Eur"], gene=common_genes))
 
 rule merge_data:
     input:
         tracts=rules.make_anc_bed.output,
         cov=rules.prep_covariates.output,
-        afr_hits=DATA_DIR + "QTL_output/hits_reestimation_primary_Afr.txt",
-        eur_hits=DATA_DIR + "QTL_output/hits_reestimation_primary_Eur.txt",
+        afr_hits=ancient(DATA_DIR + "QTL_output/hits_reestimation_primary_Afr.txt"),
+        eur_hits=ancient(DATA_DIR + "QTL_output/hits_reestimation_primary_Eur.txt"),
         data=expand_geno_pheno_data
     output:
-        merged=DATA_DIR + "MLE/merged_data.txt"
+        merged=PROTECTED_DATA_DIR + "merged_data.txt"
     params:
-        out_dir=DATA_DIR + "MLE/"
+        out_dir=PROTECTED_DATA_DIR
     shell:
         """
         mkdir -p {params.out_dir}
@@ -541,14 +584,14 @@ rule merge_data:
 
 rule optimize:
     input:
-        merged=rules.merged_data.output.merged,
+        merged=PROTECTED_DATA_DIR + "merged_data.txt",
         ascertainment=DATA_DIR + "ascertainment.txt"
     output:
-        delta=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_delta.txt",
-        betas=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_betas.txt"
+        delta=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode, ^(.)}.optimize_delta.txt",
+        betas=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode, ^(.)}.optimize_betas.txt"
     params:
         cov=lambda wildcards: wildcards.cov.split('.'),
-        dir=DATA_DIR + "MLE/{cov}"
+        dir=DATA_DIR + "model_fitting/{cov}"
     shell:
         """
         mkdir -p {params.dir}
@@ -564,17 +607,44 @@ rule optimize:
         conda deactivate
         """
 
+rule optimize_idv_bin:
+    input:
+        merged=PROTECTED_DATA_DIR + "merged_data.txt",
+        bin=DATA_DIR + "bins/idv_bin_{bin}.txt",
+        ascertainment=DATA_DIR + "ascertainment.txt"
+    output:
+        delta=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.idv_bin_{bin}.optimize_delta.txt",
+        betas=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.idv_bin_{bin}.optimize_betas.txt"
+    params:
+        cov=lambda wildcards: wildcards.cov.split('.'),
+        dir=DATA_DIR + "model_fitting/{cov}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python {OPTIMIZE_SCRIPT} --merged {input.merged} \
+            --ascertainment {input.ascertainment} \
+            --max_iter {MAX_ITER} \
+            --covariates {params.cov} \
+            --group {wildcards.group} \
+            --mode {wildcards.mode} \
+            --idv_bin {input.bin} \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} 
+        conda deactivate
+        """
+
 rule optimize_remove_val:
     input:
-        merged=rules.merged_data.output.merged,
+        merged=PROTECTED_DATA_DIR + "merged_data.txt",
         validation=DATA_DIR + "validation.txt",
         ascertainment=DATA_DIR + "ascertainment.txt"
     output:
-        delta=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_wo_val_delta.txt",
-        betas=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_wo_val_betas.txt",
+        delta=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.optimize_wo_val_delta.txt",
+        betas=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.optimize_wo_val_betas.txt",
     params:
         cov=lambda wildcards: wildcards.cov.split('.'),
-        dir=DATA_DIR + "MLE/{cov}"
+        dir=DATA_DIR + "model_fitting/{cov}"
     shell:
         """
         mkdir -p {params.dir}
@@ -591,26 +661,43 @@ rule optimize_remove_val:
         conda deactivate
         """
 
-rule perform_simulation:
+rule simulate_betas:
     input:
-        afr="data/QTL_output/hits_reestimation_primary_Afr.txt",
-        eur="data/QTL_output/hits_reestimation_primary_Eur.txt"
+        afr=ancient("data/QTL_output/hits_reestimation_primary_Afr.txt"),
+        eur=ancient("data/QTL_output/hits_reestimation_primary_Eur.txt")
     output:
-        DATA_DIR + "MLE/simulated_data/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/{idx}.txt"
+        DATA_DIR + "model_fitting/simulated_data/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}/betas.txt"
     params:
-        dir=DATA_DIR + "MLE/simulated_data/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}"
+        dir=DATA_DIR + "model_fitting/simulated_data/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}"
     shell:
         """
         mkdir -p {params.dir}
         conda activate pystats
-        python {SIM_SCRIPT} \
-            --correlation {wildcards.corr} \
-            --afr_error {wildcards.afr_error} \
-            --eur_error {wildcards.eur_error} \
-            --n_snp {wildcards.n_snp} \
-            --n_idv {wildcards.n_idv} \
+        python scripts/simulate_betas.py \
+            --var_afr {wildcards.var_afr} \
+            --var_eur {wildcards.var_eur} \
+            --error_afr {wildcards.afr_error} \
+            --error_eur {wildcards.eur_error} \
             --afr_hits {input.afr} \
             --eur_hits {input.eur} \
+            --out {output}
+        conda deactivate
+        """
+
+rule simulate_data:
+    input:
+        rules.simulate_betas.output
+    output:
+        DATA_DIR + "model_fitting/simulated_data/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}/delta{delta}.data.{idx}.txt"
+    params:
+        dir=DATA_DIR + "model_fitting/simulated_data/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}"
+    shell:
+        """
+        conda activate pystats
+        python scripts/simulate_data.py \
+            --sim_betas {input} \
+            --error_afr {wildcards.afr_error} \
+            --error_eur {wildcards.eur_error} \
             --delta {wildcards.delta} \
             --out {output}
         conda deactivate
@@ -618,12 +705,12 @@ rule perform_simulation:
 
 rule optimize_simulated_data:
     input:
-        DATA_DIR + "MLE/simulated_data/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/{idx}.txt"
+        rules.simulate_data.output
     output:
-        delta=temp(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/delta_{idx}.txt"),
-        betas=temp(DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/betas_{idx}.txt")
+        delta=temp(DATA_DIR + "model_fitting/simulated_optimization/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}/delta{delta}.optimized_delta.{idx}.txt"),
+        betas=temp(DATA_DIR + "model_fitting/simulated_optimization/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}/delta{delta}.optimized_betas.{idx}.txt")
     params:
-        dir=DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}"
+        dir=DATA_DIR + "model_fitting/simulated_optimization/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}"
     shell:
         """
         mkdir -p {params.dir}
@@ -631,6 +718,7 @@ rule optimize_simulated_data:
         python {OPTIMIZE_SCRIPT} --merged {input} \
             --max_iter {MAX_ITER} \
             --covariates \
+            --mode fit_delta \
             --betas_out {output.betas} \
             --delta_out {output.delta} 
         conda deactivate
@@ -638,28 +726,31 @@ rule optimize_simulated_data:
 
 rule parse_simulation_results:
     input:
-        expand(DATA_DIR + "MLE/simulated_optimization/delta{{delta}}.afr_error{{afr_error}}.eur_error{{eur_error}}.corr{{corr}}.n_snp{{n_snp}}.n_idv{{n_idv}}/delta_{idx}.txt", idx=[str(i).zfill(3) for i in range(100)])
+        expand(DATA_DIR + "model_fitting/simulated_optimization/vA{{var_afr}}.vE{{var_eur}}.errA{{afr_error}}.errE{{eur_error}}/delta{delta}.optimized_delta.{idx}.txt", 
+               idx=[str(i).zfill(2) for i in range(10)], delta=[i/10 for i in range(11)])
     output:
-        DATA_DIR + "MLE/simulated_optimization/delta{delta}.afr_error{afr_error}.eur_error{eur_error}.corr{corr}.n_snp{n_snp}.n_idv{n_idv}/bias_variance_report.txt"
+        DATA_DIR + "model_fitting/simulated_optimization/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}/combined_optimization_outputs.txt"
+    params:
+        dir=DATA_DIR + "model_fitting/simulated_optimization/vA{var_afr}.vE{var_eur}.errA{afr_error}.errE{eur_error}/"
     shell:
         """
         conda activate pystats
-        python {SIM_PARSER} --delta_files {input} \
-            --simulated_delta {wildcards.delta} \
+        python {SIM_PARSER} --delta_dir {params.dir} \
             --out {output}
         conda deactivate
         """
 
 rule bootstrap:
     input:
-        merged=rules.merged_data.output.merged,
+        merged=rules.merge_data.output.merged,
+        bin=ancient(DATA_DIR + "bins/idv_bin_{bin}.txt"),
         ascertainment=DATA_DIR + "ascertainment.txt"
     output:
-        delta=temp(DATA_DIR + "MLE/{cov}/{group}.bootstrap.delta_{idx}.txt"),
-        betas=temp(DATA_DIR + "MLE/{cov}/{group}.bootstrap.betas_{idx}.txt")
+        delta=temp(DATA_DIR + "model_fitting/{cov}/{group}.idv_bin_{bin}.bootstrap.delta_{idx}.txt"),
+        betas=temp(DATA_DIR + "model_fitting/{cov}/{group}.idv_bin_{bin}.bootstrap.betas_{idx}.txt")
     params:
         cov=lambda wildcards: wildcards.cov.split('.'),
-        dir=DATA_DIR + "MLE/{cov}"
+        dir=DATA_DIR + "model_fitting/{cov}"
     shell:
         """
         mkdir -p {params.dir}
@@ -668,6 +759,8 @@ rule bootstrap:
             --ascertainment {input.ascertainment} \
             --max_iter {MAX_ITER} \
             --bootstrap \
+            --mode fit_delta \
+            --idv_bin {input.bin} \
             --group {wildcards.group} \
             --covariates {params.cov} \
             --betas_out {output.betas} \
@@ -677,13 +770,63 @@ rule bootstrap:
 
 rule parse_bootstrap:
     input:
-        expand(DATA_DIR + "MLE/{{cov}}/{{group}}.bootstrap.delta_{idx}.txt", 
+        expand(DATA_DIR + "model_fitting/{{cov}}/{{group}}.bootstrap.delta_{idx}.txt", 
                idx=[str(i).zfill(3) for i in range(1000)])
     output:
-        DATA_DIR + "MLE/{cov}/{group}.bootstrap_summary.txt",
-        DATA_DIR + "MLE/{cov}/{group}.bootstrap_all.txt"
+        DATA_DIR + "model_fitting/{cov}/{group}.bootstrap_summary.txt",
+        DATA_DIR + "model_fitting/{cov}/{group}.bootstrap_all.txt"
     params:
-        prefix=DATA_DIR + "MLE/{cov}/{group}.bootstrap_"
+        prefix=DATA_DIR + "model_fitting/{cov}/{group}.bootstrap_"
+    shell:
+        """
+        conda activate py36
+        python {BOOTSTRAP_SCRIPT} --bootstrap_files {input} --out {params.prefix}
+        conda deactivate
+        """
+
+rule jackknife:
+    input:
+        merged=rules.merge_data.output.merged,
+        ascertainment=DATA_DIR + "ascertainment.txt"
+    output:
+        delta=temp(DATA_DIR + "model_fitting/{cov}/{group}.jackknife.delta_{gene}.txt"),
+        betas=temp(DATA_DIR + "model_fitting/{cov}/{group}.jackknife.betas_{gene}.txt")
+    params:
+        cov=lambda wildcards: wildcards.cov.split('.'),
+        dir=DATA_DIR + "model_fitting/{cov}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python {OPTIMIZE_SCRIPT} --merged {input.merged} \
+            --ascertainment {input.ascertainment} \
+            --max_iter {MAX_ITER} \
+            --jackknife {wildcards.gene} \
+            --mode fit_delta \
+            --group {wildcards.group} \
+            --covariates {params.cov} \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} 
+        conda deactivate
+        """
+
+def expand_jackknife(wildcards):
+    with open(checkpoints.extract_hits.get(type="primary", anc="Afr").output[0], 'r') as f:
+        afr_genes = fetch_genes(f)
+    with open(checkpoints.extract_hits.get(type="primary", anc="Eur").output[0], 'r') as f:
+        eur_genes = fetch_genes(f)
+    common_genes = list(set(afr_genes) & set(eur_genes))
+    return(expand(DATA_DIR + "model_fitting/{cov}/{group}.jackknife.delta_{gene}.txt",
+                  cov=wildcards.cov, group=wildcards.group, gene=common_genes)) 
+
+rule parse_jackknife:
+    input:
+        expand_jackknife
+    output:
+        DATA_DIR + "model_fitting/{cov}/{group}.jackknife_summary.txt",
+        DATA_DIR + "model_fitting/{cov}/{group}.jackknife_all.txt"
+    params:
+        prefix=DATA_DIR + "model_fitting/{cov}/{group}.jackknife_"
     shell:
         """
         conda activate py36
@@ -693,13 +836,13 @@ rule parse_bootstrap:
 
 rule likelihood:
     input:
-        merged=rules.merged_data.output.merged,
+        merged=rules.merge_data.output.merged,
         ascertainment=DATA_DIR + "ascertainment.txt"
     output:
-        DATA_DIR + "MLE/{cov}/{group}.likelihood_vs_delta.txt"
+        DATA_DIR + "model_fitting/{cov}/{group}.likelihood_vs_delta.txt"
     params:
         cov=lambda wildcards: wildcards.cov.split('.'),
-        dir=DATA_DIR + "MLE/{cov}"
+        dir=DATA_DIR + "model_fitting/{cov}"
     shell:
         """
         mkdir -p {params.dir}
@@ -726,7 +869,7 @@ rule sample_merged:
 
 rule correlate_expression:
     input:
-        merged=rules.merged_data.output.merged
+        merged=rules.merge_data.output.merged
     output:
         DATA_DIR + "correlation.expression.txt"
     shell:
@@ -741,7 +884,7 @@ rule correlate_expression:
 rule std_dev_analysis:
     input:
         rules.select_samples.output,
-        DATA_DIR + READS,
+        PROTECTED_DATA_DIR + READS,
         expand(rules.normalize_expression.output.bed, anc=["Afr", "Eur"])
     output:
         DATA_DIR + "variances.txt"
@@ -754,12 +897,14 @@ rule std_dev_analysis:
 
 rule anova_analysis:
     input:
-        betas=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_wo_val_betas.txt",
-        delta=DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.optimize_wo_val_delta.txt",
-        merged=rules.merged_data.output.merged
+        betas=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.optimize_wo_val_betas.txt",
+        delta=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.optimize_wo_val_delta.txt",
+        merged=PROTECTED_DATA_DIR + "merged_data.txt",
         validation=DATA_DIR + "validation.txt"
     output:
-        DATA_DIR + "MLE/{cov}/{group}.mode_{mode}.ind_{ind}.optimize.anova_analysis.txt"
+        DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.ind_{ind}.optimize.anova_analysis.txt"
+    params:
+        terms=lambda wildcards: wildcards.cov.split('.')
     shell:
         """
         conda activate pystats
@@ -769,6 +914,33 @@ rule anova_analysis:
             --delta {input.delta} \
             --ind {wildcards.ind} \
             --validation {input.validation} \
+            --model_terms {params.terms} \
+            --residualized_terms \
+            --mode {wildcards.mode} \
+            --out {output}
+        conda deactivate
+        """
+
+rule PGS_PVE_analysis:
+    input:
+        betas=DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_delta.optimize_wo_val_betas.txt",
+        delta=DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_delta.optimize_wo_val_delta.txt",
+        merged=PROTECTED_DATA_DIR + "merged_data.txt",
+        validation=DATA_DIR + "validation.txt"
+    output:
+        DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_delta.ind_{ind}.optimize.PGS_PVE_analysis.txt"
+    params:
+        terms=lambda wildcards: wildcards.cov.split('.')
+    shell:
+        """
+        conda activate pystats
+        python scripts/PGS_PVE.py \
+            --merged {input.merged} \
+            --betas {input.betas} \
+            --delta {input.delta} \
+            --ind {wildcards.ind} \
+            --validation {input.validation} \
+            --residualized_terms {params.terms} \
             --out {output}
         conda deactivate
         """

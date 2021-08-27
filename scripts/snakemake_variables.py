@@ -2,7 +2,10 @@ import pandas as pd
 
 ### Directories ###
 
-# Directory in which to find WGS and RNASeq data
+# Directory in which to find protected data (anything linking NWDIDs to data)
+PROTECTED_DATA_DIR = "protected_data/"
+
+# Directory in which to find remaining data
 DATA_DIR = "data/"
 
 # Directory in which to store results (eQTL hits, plots, etc)
@@ -29,8 +32,8 @@ TPM = "TOPMed_MESA_RNAseq_Pilot_expression_data/TOPMed_MESA_RNAseq_Pilot_RNASeQC
 RNASEQ_METADATA = "metadata-TOPMed_MESA_RNAseq_2973samples_metadata.tsv"
 
 # Paths to files from local and global ancestry determination
-EXCLUSION_FILE = "data/individuals_to_exclude.txt" # File of individual IDs that failed QC
-BED_DIR = "data/bed/" # Directory of local ancestry tracts
+EXCLUSION_FILE = "individuals_to_exclude.txt" # File of individual IDs that failed QC
+BED_DIR = "bed/" # Directory of local ancestry tracts
 
 
 
@@ -50,8 +53,7 @@ CONCAT_QTL_SCRIPT = "scripts/concatenate_estimates.py"
 PCA_SCRIPT = "scripts/generate_PC.py"
 SD_SCRIPT = "scripts/std_dev_comparison.py"
 MERGE_SCRIPT = "scripts/merge_eQTL_data.py"
-SIM_SCRIPT = "scripts/simulation.py"
-SIM_PARSER = "scripts/sim_bias_variance.py"
+SIM_PARSER = "scripts/parse_simulations.py"
 OPTIMIZE_SCRIPT = "scripts/iterative_parameter_optimization.py"
 LIKELIHOOD_SCRIPT = "scripts/compute_likelihood.py"
 EXP_CORRELATION_SCRIPT = "scripts/correlate_expression_covariates.py"
@@ -69,7 +71,7 @@ WINDOW = 100000 # 100 kb
 MAX_ITER = 300
 
 # FDR threshold used
-FDR = .05
+FDR = .1
 
 # Chromosomes
 CHROMS = [str(i) for i in range(1, 23)]
