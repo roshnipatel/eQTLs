@@ -11,6 +11,8 @@ scripts/src/__pycache__
 scripts/src/__pycache__/*
 scripts/slurm_submission
 scripts/single_use
+scripts/plotting
+scripts/plotting/*
 results
 results/*
 protected_data

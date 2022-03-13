@@ -1,6 +1,6 @@
 """
 This script creates 6 different types of sample input files.
-  -> ascertainment/Eur stores random sample of 249 EA for each gene.
+  -> ascertainment/Eur stores random sample of 232 EA for each gene.
   -> reestimation/primary/EA stores remaining 250 EA for each gene.
   -> reestimation/primary/AA stores random sample of 250 AA for each gene.
   -> reestimation/primary/Afr stores AA with 2 Afr haplo for each gene (max 250).
@@ -97,6 +97,8 @@ if __name__ == "__main__":
         n_validation_EA = int(MAX_AA * .2)
 
         for gene in genes:
+            if gene == "gene_id":
+                continue
             # African-American estimation set (indep. of local ancestry)
             AA_est = afr_samples.nwd_id.sample(n = MAX_AA)
             AA_filepath = args.out_dir + "/reestimation_primary/AA/" + gene + ".txt"

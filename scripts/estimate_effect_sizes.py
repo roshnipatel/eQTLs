@@ -139,6 +139,12 @@ if __name__ == '__main__':
     ind_IDs = get_ind(args.samples)
     expression, ind_IDs = parse_expression(args.phenotypes, ind_IDs)
     genotypes = parse_genotypes(args.genotypes, ind_IDs)
+    # Exit if there are no SNPs within 100 kb of the gene's TSS,
+    # creating blank output file so that Snakemake doesn't throw a fit
+    if genotypes.empty: 
+        os.system(fail_command)
+        sys.exit()
+
     genotypes, maf_table = maf_filter(genotypes, args.maf, args.ma_samples)
 
     # Exit if there are no SNPs within 100 kb of the gene's TSS,

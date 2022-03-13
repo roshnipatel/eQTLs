@@ -89,7 +89,11 @@ def neg_control(group):
        code as African-Americans in order to perform negative control."""
     val_idv = np.random.choice(group.loc[group.race == 0, "nwd_id"].values, 
                                size=100, replace=False)
+    # val_idv = np.random.choice(group.loc[group.race == 0].nwd_id.unique(), 
+    #                           size=100, replace=False)
     group_subset = group[-((group.race == 1) & (group.local_ancestry < 2))]
+    # group_subset["race"] = group_subset.apply(lambda row: 1 if row.nwd_id in val_idv 
+    #                                           else row.race, axis=1)
     group_subset["race"] = group_subset.apply(lambda row: 1 if row.nwd_id in val_idv 
                                               else row.race, axis=1, result_type='expand')
     return(group_subset)
@@ -104,9 +108,6 @@ def remove_ind(group, partition_matrix):
     return(group[-group.nwd_id.isin(asc_idv)])
 
 def bootstrap(df):
-
-
-def bootstrap_over_snps(all_df):
     """Generate one random sample (with replacement) from the input dataframe. 
        Size of sample is specified by number of genes in input dataframe."""
     def decrement(d): 
@@ -125,7 +126,7 @@ def bootstrap_over_snps(all_df):
 
     # Randomly sample over genes with replacement and document number of samples 
     # for each gene in dictionary
-    gene_list = all_df["gene"].unique()
+    gene_list = df["gene"].unique()
     n_genes = len(gene_list)
     bootstrap_list = np.random.choice(gene_list, n_genes, replace=True)
     bootstrap_dict = {}
@@ -137,7 +138,7 @@ def bootstrap_over_snps(all_df):
     # Repeat until dictionary is empty.
     bootstrap_df = pd.DataFrame()
     while bootstrap_dict:
-        tmp_df = all_df[all_df["gene"].isin(bootstrap_dict.keys())]
+        tmp_df = df[df["gene"].isin(bootstrap_dict.keys())]
         bootstrap_df = pd.concat([bootstrap_df, tmp_df])
         decrement(bootstrap_dict)
 
@@ -180,7 +181,7 @@ if __name__ == '__main__':
 
     # If ascertainment matrix provided, remove those individuals to avoid biasing 
     # parameter estimation (provided for all executions of script except on 
-    # simulated data.
+    # simulated data).
     if args.ascertainment:
         ascertainment_matrix = pd.read_csv(args.ascertainment, sep='\t', index_col=0)
         merged_data = merged_data.groupby("gene").apply(lambda grp: 
@@ -190,6 +191,7 @@ if __name__ == '__main__':
     # If estimating parameters for negative control, massage data accordingly
     if args.group == "control":
         merged_data = merged_data.groupby("gene").apply(neg_control).reset_index(drop=True)
+        # merged_data = neg_control(merged_data)
 
     # Optionally bootstrap over data, randomly sampling genes with replacement
     if args.bootstrap:

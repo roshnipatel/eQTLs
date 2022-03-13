@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 ### Directories ###
 
@@ -51,14 +52,15 @@ ID_HITS_SCRIPT = "scripts/identify_hits.py"
 GENE_LIST_SCRIPT = "scripts/merge_gene_list.py"
 CONCAT_QTL_SCRIPT = "scripts/concatenate_estimates.py"
 PCA_SCRIPT = "scripts/generate_PC.py"
-SD_SCRIPT = "scripts/std_dev_comparison.py"
 MERGE_SCRIPT = "scripts/merge_eQTL_data.py"
-SIM_PARSER = "scripts/parse_simulations.py"
 OPTIMIZE_SCRIPT = "scripts/iterative_parameter_optimization.py"
 LIKELIHOOD_SCRIPT = "scripts/compute_likelihood.py"
 EXP_CORRELATION_SCRIPT = "scripts/correlate_expression_covariates.py"
 ANOVA_SCRIPT = "scripts/anova.py"
 BOOTSTRAP_SCRIPT = "scripts/parse_bootstrap.py"
+MASK_AA_GENO_SCRIPT = "scripts/mask_AA_genotypes.py"
+MASK_EA_GENO_SCRIPT = "scripts/mask_EA_genotypes.py"
+SIM_SCRIPT = "scripts/stdpopsim_simulations.py"
 
 
 
@@ -71,7 +73,29 @@ WINDOW = 100000 # 100 kb
 MAX_ITER = 300
 
 # FDR threshold used
-FDR = .1
+FDR = .01
 
 # Chromosomes
 CHROMS = [str(i) for i in range(1, 23)]
+
+# Covariates
+sites = "site1c_3.site1c_4.site1c_5.site1c_6.site1c_7.site1c_8"
+FULL_COV_LIST = ["local_ancestry.global_ancestry.genotype_PC1.race_Afr.race_Eur.seq_center.exam.sex." + sites]
+NO_BETA_COV_LIST = ["seq_center.exam." + sites, "seq_center.exam.sex." + sites,
+                    "race_Afr.race_Eur.seq_center.exam.sex." + sites,
+                    "global_ancestry.genotype_PC1.race_Afr.race_Eur.seq_center.exam.sex." + sites] + FULL_COV_LIST
+GROUPS = ["test", "control"]
+
+
+
+### Functions ###
+
+def fetch_genes(f):
+    genes, gene_idx = [], None
+    for line in f.readlines():
+        if not gene_idx:
+            gene_idx = line.strip().split('\t').index("gene")
+            continue
+        curr_gene = line.strip().split('\t')[gene_idx]
+        genes.append(curr_gene)
+    return(genes)

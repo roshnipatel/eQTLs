@@ -59,11 +59,6 @@
     {
         "memory"    : 1000
     },
-    "add_validation_samp":
-    {
-        "memory"    : 15000,
-        "time"      : "2:00:00"
-    },
     "partition_samples":
     {
         "memory"    : 15000,
@@ -90,40 +85,22 @@
     },
     "extract_hits":
     {
-        "time"      : "30:00",
+        "time"      : "1:00:00",
         "memory"    : 3000
     },
     "identify_hits":
     {
-        "memory"    : 3000
-    },
-    "simulate_betas":
-    {
-        "memory"    : 2000
-    },
-    "simulate_data":
-    {
-        "time"      : "20:00",
-        "memory"    : 20000
+        "memory"    : 5000,
+        "time"      : "15:00"
     },
     "merge_data":
     {
         "time"      : "2:00:00",
         "memory"    : 30000
     },
-    "jackknife":
-    {
-        "time"      : "15:00",
-        "memory"    : 5000
-    },
     "bootstrap":
     {
-        "time"      : "15:00",
-        "memory"    : 5000
-    },
-    "std_dev_analysis":
-    {
-        "time"      : "15:00",
+        "time"      : "30:00",
         "memory"    : 5000
     },
     "optimize_simulated_data":
@@ -136,29 +113,18 @@
         "time"      : "30:00",
         "memory"    : 10000
     },
-    "correlate_expression_noreg":
-    {
-        "time"      : "30:00",
-        "memory"    : 10000
-    },
     "anova_analysis":
     {
-        "time"      : "15:00",
+        "time"      : "1:00:00",
         "memory"    : 10000
     },
-    "PGS_PVE_analysis":
+    "parse_bootstrap":
     {
-        "time"      : "2:00:00",
-        "memory"    : 5000
+        "time"      : "20:00"
     },
     "optimize":
     {
-        "time"      : "15:00",
-        "memory"    : 5000
-    },
-    "optimize_idv_bin":
-    {
-        "time"      : "15:00",
+        "time"      : "30:00",
         "memory"    : 5000
     },
     "optimize_remove_val":
@@ -168,7 +134,15 @@
     },
     "likelihood":
     {
-        "memory"    : 10000,
-        "time"      : "24:00:00"
+        "memory"    : 15000,
+        "time"      : "1:00:00"
+    },
+    "mask_AA_VCF":
+    {
+        "memory"    : 3000
+    },
+    "mask_EA_VCF":
+    {
+        "memory"    : 3000
     }
 }

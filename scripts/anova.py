@@ -3,43 +3,23 @@ import numpy as np
 import argparse
 from iterative_parameter_optimization import remove_ind
 
-def compute_var(curr_betas, delta, exp_df, model_terms, resid_terms, ind):
-    """For a single gene, compute the proportion of (optionally residualized)
-       expression variance explained by the model."""
+def compute_var(curr_betas, delta, exp_df, model_terms):
+    """For a single gene, compute the proportion of 
+       expression variance unexplained by the model."""
     gene = curr_betas.gene
-    
-    # Specify which individuals are used to calculate variance explained
-    if ind == "all": # Use all individuals
-        curr_gene = exp_df.loc[exp_df.gene == gene]
-    elif ind == "AAEur": # Use only AA with Eur ancestry at locus
-        curr_gene = exp_df.loc[(exp_df.gene == gene) & ((exp_df.race == 1) 
-                               & (exp_df.local_ancestry < 2))]
-    elif ind == "AAAfr": # Use only AA with Afr ancestry at locus
-        curr_gene = exp_df.loc[(exp_df.gene == gene) & ((exp_df.race == 1) 
-                               & (exp_df.local_ancestry == 2))]
-    elif ind == "EA": # Use only EA
-        curr_gene = exp_df.loc[(exp_df.gene == gene) & (exp_df.race == 0)]
-    elif ind == "AA": # Use only AA
-        curr_gene = exp_df.loc[(exp_df.gene == gene) & (exp_df.race == 1)]
-
+    curr_gene = exp_df.loc[exp_df.gene == gene]
     # Sum up model terms
     mod = np.zeros(len(curr_gene))
     for term in model_terms:
-        mod = curr_betas[term] * curr_gene.loc[:,term]
+        mod += curr_betas[term] * curr_gene.loc[:,term]
     if delta != 0:
         mod += delta * (curr_betas.genotype_Afr - curr_betas.genotype_Eur) * \
                 curr_gene.genotype_Eur * curr_gene.race
-   
-    # Sum up terms to residualize
-    resid = np.zeros(len(curr_gene))
-    for term in resid_terms:
-        resid = curr_betas[term] * curr_gene.loc[:,term]
-
-    var_exp = np.var(curr_gene.loc[:,"expression"] - resid)
-    var_mod = np.var(mod)
-
-    # Return proportion variance explained by model 
-    return(var_mod / var_exp)
+    var_exp = np.var(curr_gene.loc[:,"expression"])
+    resid = curr_gene.loc[:,"expression"] - mod
+    var_resid = np.var(resid)
+    # Return proportion residual variance
+    return(var_resid / var_exp)
 
 def maf_filtered_genes(merged, maf_threshold):
     def filter_helper(gene_df, maf_df, threshold):
@@ -60,7 +40,6 @@ if __name__ == '__main__':
     parser.add_argument('--ind')
     parser.add_argument('--validation')
     parser.add_argument('--model_terms', nargs='+')
-    parser.add_argument('--residualized_terms', nargs='*')
     parser.add_argument('--mode')
     parser.add_argument('--out')
     args = parser.parse_args()
@@ -95,21 +74,29 @@ if __name__ == '__main__':
         else:
             rename_dict[col] = col
     betas = betas.rename(columns=rename_dict)
+    
+    # If using a single beta b (i.e. not ancestry-specific betas bA and bE)
+    # then set coefficients of gA and gE equal to the same beta, b
     if "beta" in rename_dict:
         betas["genotype_Afr"] = betas.loc[:,"beta"]
         betas["genotype_Eur"] = betas.loc[:,"beta"]
 
-    # Parse model terms and terms to residualize, inferring additional
-    # model terms from analysis mode
-    model_terms = args.model_terms
-    if len(model_terms) == 2 and args.mode == "fit_no_beta": 
-        model_terms.append("intercept")
-        merged_data["intercept"] = 1
-    elif args.mode != "fit_no_beta":
-        model_terms.extend(["genotype_Afr", "genotype_Eur"]) 
-    resid_terms = args.residualized_terms
+    # If using model with single intercept c (i.e. not race-specific 
+    # intercepts cA and cE) then set coefficients of rA and rE equal to the
+    # same intercept, c
+    if "intercept" in rename_dict:
+        betas["race_Afr"] = betas.loc[:,"intercept"]
+        betas["race_Eur"] = betas.loc[:,"intercept"]
+
+    # If fitting genotype betas, add these terms to the set model_terms 
+    model_terms = set(args.model_terms)
+    model_terms.add("race_Afr")
+    model_terms.add("race_Eur")
+    if args.mode != "fit_no_beta":
+        model_terms.add("genotype_Afr") 
+        model_terms.add("genotype_Eur") 
 
     # Compute proportion variance explained by model in validation set
-    betas["prop_var"] = betas.apply(lambda row: 
-        compute_var(row, delta, merged_data, model_terms, resid_terms, args.ind), axis=1)
-    betas.to_csv(args.out, index=True, columns=["prop_var"], sep='\t')
+    betas.loc[:,"prop_var"] = betas.apply(lambda row: 
+        compute_var(row, delta, merged_data, model_terms), axis=1)
+    betas.to_csv(args.out, index=False, columns=["gene", "prop_var"], sep='\t')
