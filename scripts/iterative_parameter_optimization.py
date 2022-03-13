@@ -89,7 +89,11 @@ def neg_control(group):
        code as African-Americans in order to perform negative control."""
     val_idv = np.random.choice(group.loc[group.race == 0, "nwd_id"].values, 
                                size=100, replace=False)
+    # val_idv = np.random.choice(group.loc[group.race == 0].nwd_id.unique(), 
+    #                           size=100, replace=False)
     group_subset = group[-((group.race == 1) & (group.local_ancestry < 2))]
+    # group_subset["race"] = group_subset.apply(lambda row: 1 if row.nwd_id in val_idv 
+    #                                           else row.race, axis=1)
     group_subset["race"] = group_subset.apply(lambda row: 1 if row.nwd_id in val_idv 
                                               else row.race, axis=1, result_type='expand')
     return(group_subset)
@@ -103,7 +107,7 @@ def remove_ind(group, partition_matrix):
     asc_idv = partition_matrix.loc[gene, partition_matrix.loc[gene] == 1].index
     return(group[-group.nwd_id.isin(asc_idv)])
 
-def bootstrap_data(all_df):
+def bootstrap(df):
     """Generate one random sample (with replacement) from the input dataframe. 
        Size of sample is specified by number of genes in input dataframe."""
     def decrement(d): 
@@ -122,7 +126,7 @@ def bootstrap_data(all_df):
 
     # Randomly sample over genes with replacement and document number of samples 
     # for each gene in dictionary
-    gene_list = all_df["gene"].unique()
+    gene_list = df["gene"].unique()
     n_genes = len(gene_list)
     bootstrap_list = np.random.choice(gene_list, n_genes, replace=True)
     bootstrap_dict = {}
@@ -134,7 +138,7 @@ def bootstrap_data(all_df):
     # Repeat until dictionary is empty.
     bootstrap_df = pd.DataFrame()
     while bootstrap_dict:
-        tmp_df = all_df[all_df["gene"].isin(bootstrap_dict.keys())]
+        tmp_df = df[df["gene"].isin(bootstrap_dict.keys())]
         bootstrap_df = pd.concat([bootstrap_df, tmp_df])
         decrement(bootstrap_dict)
 
@@ -149,10 +153,13 @@ if __name__ == '__main__':
     parser.add_argument('--group')
     parser.add_argument('--mode')
     parser.add_argument('--ascertainment')
+    parser.add_argument('--idv_bin', default=None)
+    parser.add_argument('--gene_bin', default=None)
     parser.add_argument('--validation', default=None)
     parser.add_argument('--covariates', nargs='*')
     parser.add_argument('--delta', default=None)
     parser.add_argument('--bootstrap', action='store_true')
+    parser.add_argument('--jackknife')
     parser.add_argument('--single_beta', action='store_true')
     parser.add_argument('--no_beta', action='store_true')
     args = parser.parse_args()
@@ -162,24 +169,44 @@ if __name__ == '__main__':
                                    "nwd_id", "gene", "race"]
     merged_data = merged_data[col_names]
 
-    # Remove ascertainment individuals to avoid biasing parameter estimation
-    ascertainment_matrix = pd.read_csv(args.ascertainment, sep='\t', index_col=0)
-    merged_data = merged_data.groupby("gene").apply(lambda grp: 
-        remove_ind(grp, ascertainment_matrix)).reset_index(drop=True)
+    # Optionally filter for the individuals and/or genes in the provided bin file
+    if args.idv_bin:
+        idv_bin = pd.read_csv(args.idv_bin, squeeze=True)
+        merged_data = merged_data.loc[merged_data.nwd_id.isin(idv_bin)] 
+    if args.gene_bin:
+        gene_bin = pd.read_csv(args.gene_bin, squeeze=True)
+        merged_data["trimmed_gene"] = merged_data.apply(lambda row: row.gene[:15], axis=1)
+        merged_data = merged_data.loc[merged_data.trimmed_gene.isin(gene_bin)]
+        merged_data = merged_data.drop(columns=["trimmed_gene"])
+
+    # If ascertainment matrix provided, remove those individuals to avoid biasing 
+    # parameter estimation (provided for all executions of script except on 
+    # simulated data).
+    if args.ascertainment:
+        ascertainment_matrix = pd.read_csv(args.ascertainment, sep='\t', index_col=0)
+        merged_data = merged_data.groupby("gene").apply(lambda grp: 
+            remove_ind(grp, ascertainment_matrix)).reset_index(drop=True)
+    print("removed asc")
 
     # If estimating parameters for negative control, massage data accordingly
     if args.group == "control":
         merged_data = merged_data.groupby("gene").apply(neg_control).reset_index(drop=True)
+        # merged_data = neg_control(merged_data)
 
     # Optionally bootstrap over data, randomly sampling genes with replacement
     if args.bootstrap:
-        merged_data = bootstrap_data(merged_data)
+        merged_data = bootstrap(merged_data)
+
+    # Optionally perform jackknife, dropping the user-specified gene from the data
+    if args.jackknife:
+        merged_data = merged_data.loc[merged_data.gene != args.jackknife, :]
 
     # If validation matrix provided, remove those individuals before estimating parameters
     if args.validation:
         validation_matrix = pd.read_csv(args.validation, sep='\t', index_col=0)
         merged_data = merged_data.groupby("gene").apply(lambda grp: 
             remove_ind(grp, validation_matrix)).reset_index(drop=True)
+    print("removed val")
     
     # Initialize empty parameter columns
     merged_data["beta_Afr"] = None
@@ -206,6 +233,7 @@ if __name__ == '__main__':
         merged_data = update_params(merged_data, args.covariates, betas=curr_betas)
         document_params(args.delta_out, args.betas_out, curr_delta, curr_betas)
     elif args.mode == "fit_delta": # Fit model with delta, iteratively optimizing delta + betas
+        print("fitting delta")
         prev_delta = -1 # Ensures we do 1+ iterations
         for i in range(int(args.max_iter)):
             if i == 0:

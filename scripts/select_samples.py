@@ -160,5 +160,5 @@ if __name__ == "__main__":
     all_samp_props = all_samp.groupby(["race", "seq_center", "exam", "sex"]).size().divide(all_samp.groupby(["race"]).size())
     
     # Write TOR ID and NWDID to file
-    all_samp[all_samp.race == "Black"][['tor_id', 'nwd_id']].to_csv(args.output + "_Afr.txt", sep='\t', index=False)
-    all_samp[all_samp.race == "White"][['tor_id', 'nwd_id']].to_csv(args.output + "_Eur.txt", sep='\t', index=False)
+    all_samp[all_samp.race == "Black"][['tor_id', 'nwd_id']].to_csv(args.out + "_Afr.txt", sep='\t', index=False)
+    all_samp[all_samp.race == "White"][['tor_id', 'nwd_id']].to_csv(args.out + "_Eur.txt", sep='\t', index=False)

@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import argparse
-from call_eqtls import parse_genotypes
+from estimate_effect_sizes import parse_genotypes
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 

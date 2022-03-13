@@ -1,0 +1,410 @@
+# Estimate delta, run simulations, and quantify proportion of phenotypic variance
+# described by different models. Used to generate Table 1 and Fig. 3, S2, S3, S5, 
+# S6, and S7. Must be run after the SNP ascertainment Snakefile!
+
+# Variables and filepaths stored here
+include: "scripts/snakemake_variables.py"
+
+# Required to use conda environments
+shell.executable("/usr/bin/bash")
+shell.prefix("source /home/users/rpatel7/.bashrc; ")
+
+def expand_eur_genes(wildcards):
+    with open(DATA_DIR + "QTL_output/hits_reestimation_primary_EA.txt", 'r') as f:
+        eur_genes = fetch_genes(f)
+    with open(DATA_DIR + "QTL_output/hits_reestimation_primary_AA.txt", 'r') as f:
+        afr_genes = fetch_genes(f)
+    common_genes = list(set(afr_genes) & set(eur_genes))
+    return(expand(DATA_DIR + "LD_matrices/{type}/{gene}.ld", 
+                  gene=common_genes, type=["AA_Afr", "AA_Eur", "EA_1", "EA_2"]))
+
+rule all:
+    input:
+        ### For estimating delta and computing likelihoods
+        expand(DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_delta.optimize_{param}.txt", 
+               param=["delta", "betas"], cov=FULL_COV_LIST, group=GROUPS),
+        expand(DATA_DIR + "model_fitting/{cov}/{group}.bootstrap_summary.txt", 
+               cov=FULL_COV_LIST, group=GROUPS),
+        expand(DATA_DIR + "model_fitting/{cov}/{group}.likelihood_vs_delta.txt", 
+               cov=FULL_COV_LIST, group=GROUPS),
+
+        ### For proportion of phenotypic variance
+        expand(DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_delta.anova_analysis.txt",
+               cov=FULL_COV_LIST, group=["test"]),
+        expand(DATA_DIR + "model_fitting/{cov}/{group}.mode_fit_no_beta.anova_analysis.txt",
+               cov=NO_BETA_COV_LIST, group=["test"]),
+        expand(DATA_DIR + "model_fitting/{cov}/{group}.mode_no_interaction.anova_analysis.txt",
+               cov=FULL_COV_LIST, group=["test"]),
+
+        ### For simulations
+        expand(DATA_DIR + "simulations/{dir}/combined_results.delta{delta}.txt", delta=[0, 0.2, 0.4, 0.6, 0.8],
+               dir=["equal_betas", "pop_Afr/r2_0.8", "pop_Afr/r2_0.6", "pop_Eur/r2_0.6", "pop_Eur/r2_0.8"]),
+
+        ### For covariate/PC analyses:
+        DATA_DIR + "correlation.expression.txt"
+        
+        # expand_eur_genes,
+
+################################ MERGE DATA ####################################
+
+def expand_geno_pheno_data(wildcards):
+    with open(DATA_DIR + "QTL_output/hits_reestimation_primary_AA.txt", 'r') as f:
+        afr_genes = fetch_genes(f)
+    with open(DATA_DIR + "QTL_output/hits_reestimation_primary_EA.txt", 'r') as f:
+        eur_genes = fetch_genes(f)
+    common_genes = list(set(afr_genes) & set(eur_genes))
+    return(expand(PROTECTED_DATA_DIR + "QTL_geno_input/{anc}/{gene}.vcf.gz", 
+                  anc=["Afr", "Eur"], gene=common_genes) + 
+           expand(PROTECTED_DATA_DIR + "QTL_pheno_input/{anc}/{gene}.txt", 
+                  anc=["Afr", "Eur"], gene=common_genes))
+
+rule merge_data:
+    input:
+        tracts=PROTECTED_DATA_DIR + "anc_tracts.bed",
+        cov=PROTECTED_DATA_DIR + "mesa.sample_covariates.with_site.txt",
+        afr_hits=DATA_DIR + "QTL_output/hits_reestimation_primary_AA.txt",
+        eur_hits=DATA_DIR + "QTL_output/hits_reestimation_primary_EA.txt",
+        data=expand_geno_pheno_data
+    output:
+        PROTECTED_DATA_DIR + "merged_data.txt"
+    shell:
+        """
+        conda activate pystats
+        python {MERGE_SCRIPT} --tracts {input.tracts} \
+            --afr_hits {input.afr_hits} \
+            --eur_hits {input.eur_hits} \
+            --covariates {input.cov} \
+            --out {output.merged}
+        conda deactivate
+        """
+
+############################ COVARIATE ANALYSES ################################
+
+rule correlate_expression:
+    input:
+        merged=rules.merge_data.output.merged
+    output:
+        DATA_DIR + "correlation.expression.txt"
+    shell:
+        """
+        conda activate pystats
+        python {EXP_CORRELATION_SCRIPT} \
+            --merged {input.merged} \
+            --out {output}
+        conda deactivate
+        """
+
+########################## QUANTIFY PROP PHENO VAR #############################
+
+rule optimize_remove_val:
+    input:
+        merged=rules.merge_data.output,
+        validation=DATA_DIR + "validation.txt",
+        ascertainment=DATA_DIR + "ascertainment.txt"
+    output:
+        delta=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.optimize_wo_val_delta.txt",
+        betas=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.optimize_wo_val_betas.txt",
+    params:
+        cov=lambda wildcards: wildcards.cov.split('.'),
+        dir=DATA_DIR + "model_fitting/{cov}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python {OPTIMIZE_SCRIPT} --merged {input.merged} \
+            --validation {input.validation} \
+            --ascertainment {input.ascertainment} \
+            --max_iter {MAX_ITER} \
+            --covariates {params.cov} \
+            --group {wildcards.group} \
+            --mode {wildcards.mode} \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} 
+        conda deactivate
+        """
+
+rule anova_analysis:
+    input:
+        betas=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.optimize_wo_val_betas.txt",
+        delta=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.optimize_wo_val_delta.txt",
+        merged=rules.merge_data.output,
+        validation=DATA_DIR + "validation.txt"
+    output:
+        DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.anova_analysis.txt"
+    params:
+        terms=lambda wildcards: wildcards.cov.split('.')
+    shell:
+        """
+        conda activate pystats
+        python {ANOVA_SCRIPT} \
+            --merged {input.merged} \
+            --betas {input.betas} \
+            --delta {input.delta} \
+            --validation {input.validation} \
+            --model_terms {params.terms} \
+            --mode {wildcards.mode} \
+            --out {output}
+        conda deactivate
+        """
+
+#################### ESTIMATE DELTA & COMPUTE LIKELIHOODS ######################
+
+rule optimize:
+    input:
+        merged=rules.merge_data.output,
+        ascertainment=DATA_DIR + "ascertainment.txt"
+    output:
+        delta=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.optimize_delta.txt",
+        betas=DATA_DIR + "model_fitting/{cov}/{group}.mode_{mode}.optimize_betas.txt"
+    params:
+        cov=lambda wildcards: wildcards.cov.split('.'),
+        dir=DATA_DIR + "model_fitting/{cov}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python {OPTIMIZE_SCRIPT} --merged {input.merged} \
+            --ascertainment {input.ascertainment} \
+            --max_iter {MAX_ITER} \
+            --covariates {params.cov} \
+            --group {wildcards.group} \
+            --mode {wildcards.mode} \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} 
+        conda deactivate
+        """
+
+rule bootstrap:
+    input:
+        merged=rules.merge_data.output,
+        ascertainment=DATA_DIR + "ascertainment.txt"
+    output:
+        delta=temp(DATA_DIR + "model_fitting/{cov}/{group}.bootstrap.delta_{idx}.txt"),
+        betas=temp(DATA_DIR + "model_fitting/{cov}/{group}.bootstrap.betas_{idx}.txt")
+    params:
+        cov=lambda wildcards: wildcards.cov.split('.'),
+        dir=DATA_DIR + "model_fitting/{cov}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python {OPTIMIZE_SCRIPT} --merged {input.merged} \
+            --ascertainment {input.ascertainment} \
+            --max_iter {MAX_ITER} \
+            --bootstrap \
+            --mode fit_delta \
+            --group {wildcards.group} \
+            --covariates {params.cov} \
+            --betas_out {output.betas} \
+            --delta_out {output.delta} 
+        conda deactivate
+        """
+
+rule parse_bootstrap:
+    input:
+        expand(DATA_DIR + "model_fitting/{{cov}}/{{group}}.bootstrap.delta_{idx}.txt", 
+               idx=[str(i).zfill(3) for i in range(1000)])
+    output:
+        DATA_DIR + "model_fitting/{cov}/{group}.bootstrap_summary.txt",
+        DATA_DIR + "model_fitting/{cov}/{group}.bootstrap_all.txt"
+    params:
+        prefix=DATA_DIR + "model_fitting/{cov}/{group}.bootstrap_"
+    shell:
+        """
+        conda activate py36
+        python {BOOTSTRAP_SCRIPT} --bootstrap_files {input} --out {params.prefix}
+        conda deactivate
+        """
+
+rule likelihood:
+    input:
+        merged=rules.merge_data.output,
+        ascertainment=DATA_DIR + "ascertainment.txt"
+    output:
+        DATA_DIR + "model_fitting/{cov}/{group}.likelihood_vs_delta.delta_{delta}.txt"
+    params:
+        cov=lambda wildcards: wildcards.cov.split('.'),
+        dir=DATA_DIR + "model_fitting/{cov}"
+    shell:
+        """
+        mkdir -p {params.dir}
+        conda activate pystats
+        python {LIKELIHOOD_SCRIPT} --merged {input.merged} \
+            --ascertainment {input.ascertainment} \
+            --group {wildcards.group} \
+            --covariates {params.cov} \
+            --delta {wildcards.delta} \
+            --out {output}
+        conda deactivate
+        """
+
+rule merge_likelihood:
+    input:
+        expand(DATA_DIR + "model_fitting/{{cov}}/{{group}}.likelihood_vs_delta.delta_{delta}.txt",
+               delta=[i/100 for i in range(0, 101)])
+    output:
+        DATA_DIR + "model_fitting/{cov}/{group}.likelihood_vs_delta.txt"
+    shell:
+        """
+        head -n 1 -q {input[0]} > {output}
+        tail -n +2 -q {input} >> {output}
+        """
+
+################################ SIMULATIONS ###################################
+
+rule simulate_global_anc:
+    output:
+        DATA_DIR + "simulations/simulated_ganc.txt"
+    run:
+        ganc = np.random.beta(7.9, 2.1, 320)
+        np.savetxt(output[0], ganc)
+
+rule simulate:
+    input:
+        rules.simulate_global_anc.output
+    output:
+        temp(DATA_DIR + "simulations/pop_{pop}/r2_{r2}/gene{gene}_delta{delta}.{idx}.txt")
+    shell:
+        """
+        mkdir -p {DATA_DIR}simulations/pop_{wildcards.pop}/r2_{wildcards.r2}
+        conda activate sims
+        python {SIM_SCRIPT} \
+            --ganc {input} \
+            --gene {wildcards.gene} \
+            --delta {wildcards.delta} \
+            --asc_pop {wildcards.pop} \
+            --r2 {wildcards.r2} \
+            --out {output}
+        conda deactivate
+        """
+
+rule simulate_equal_betas:
+    input:
+        rules.simulate_global_anc.output
+    output:
+        temp(DATA_DIR + "simulations/equal_betas/gene{gene}_delta{delta}.{idx}.txt")
+    shell:
+        """
+        mkdir -p {DATA_DIR}simulations/equal_betas
+        conda activate sims
+        python {SIM_SCRIPT} \
+            --ganc {input} \
+            --gene {wildcards.gene} \
+            --delta {wildcards.delta} \
+            --asc_pop Eur \
+            --r2 0.8 \
+            --same_beta \
+            --out {output}
+        conda deactivate
+        """
+
+rule merge_simulations:
+    input:
+        expand(DATA_DIR + "simulations/{{dir}}/gene{gene}_delta{{delta}}.{{idx}}.txt", 
+               gene = range(100))
+    output:
+        temp(DATA_DIR + "simulations/{dir}/merged_delta{delta}.{idx}.txt")
+    run:
+        df_list = []
+        for f in input:
+            df = pd.read_csv(f, sep='\t')
+            df_list.append(df)
+        df = pd.concat(df_list, ignore_index=True)
+        df.to_csv(output[0], sep='\t', index=False)
+
+rule optimize_simulated_data:
+    input:
+        DATA_DIR + "simulations/{dir}/merged_delta{delta}.{idx}.txt"
+    output:
+        delta=temp(DATA_DIR + "simulations/{dir}/delta{delta}.optimized_delta.{idx}.txt"),
+        betas=temp(DATA_DIR + "simulations/{dir}/delta{delta}.optimized_betas.{idx}.txt")
+    shell:
+        """
+        conda activate pystats
+        python {OPTIMIZE_SCRIPT} --merged {input} \
+            --max_iter {MAX_ITER} \
+            --covariates \
+            --mode fit_delta \
+            --betas_out {output.betas} \
+            --delta_out {output.delta}
+        conda deactivate
+        """
+
+rule parse_simulations:
+    input:
+        expand(DATA_DIR + "simulations/{{dir}}/delta{{delta}}.optimized_delta.{idx}.txt", 
+               idx=range(20))
+    output:
+        DATA_DIR + "simulations/{dir}/combined_results.delta{delta}.txt"
+    run:
+        with open(output[0], 'w') as out_file:
+            for f in input:
+                with open(f, 'r') as in_file:
+                    curr_delta = in_file.readlines()[-1]
+                    out_file.write(curr_delta)
+
+################################ LD COMPARISONS ################################
+
+rule mask_EA_VCF:
+    input:
+        vcf=PROTECTED_DATA_DIR + "QTL_geno_input/Eur/{gene}.vcf.gz"
+    output:
+        PROTECTED_DATA_DIR + "masked_VCFs/EA_1/{gene}.vcf.gz",
+        PROTECTED_DATA_DIR + "masked_VCFs/EA_2/{gene}.vcf.gz"
+    shell:
+        """
+        mkdir -p {PROTECTED_DATA_DIR}masked_VCFs/EA_1
+        mkdir -p {PROTECTED_DATA_DIR}masked_VCFs/EA_2
+        conda activate py36
+        python {MASK_EA_GENO_SCRIPT} --vcf {input.vcf} --out {output}
+        conda deactivate
+        """
+
+rule mask_AA_VCF:
+    input:
+        vcf=PROTECTED_DATA_DIR + "QTL_geno_input/Afr/{gene}.vcf.gz",
+        tracts=PROTECTED_DATA_DIR + "intersection_anc_genes.bed"
+    output:
+        PROTECTED_DATA_DIR + "masked_VCFs/AA_{anc}/{gene}.vcf.gz"
+    shell:
+        """
+        mkdir -p {PROTECTED_DATA_DIR}masked_VCFs/AA_{wildcards.anc}
+        conda activate py36
+        python {MASK_AA_GENO_SCRIPT} --vcf {input.vcf} --tracts {input.tracts} \
+            --gene {wildcards.gene} --anc {wildcards.anc} --out {output}
+        conda deactivate
+        """
+
+rule compute_r2_AA:
+    input:
+        PROTECTED_DATA_DIR + "masked_VCFs/AA_{anc}/{gene}.vcf.gz"
+    output:
+        ld=DATA_DIR + "LD_matrices/AA_{anc}/{gene}.ld",
+        log=temp(DATA_DIR + "LD_matrices/AA_{anc}/{gene}.log"),
+        nosex=temp(DATA_DIR + "LD_matrices/AA_{anc}/{gene}.nosex")
+    params:
+        prefix=lambda wildcards, output: output.ld[:-3]
+    shell:
+        """
+        mkdir -p {DATA_DIR}LD_matrices/AA_{wildcards.anc}
+        conda activate plink-env
+        plink --vcf {input} --vcf-half-call m --allow-no-sex --r2 --out {params.prefix}
+        conda deactivate
+        """
+
+rule compute_r2_EA:
+    input:
+        PROTECTED_DATA_DIR + "masked_VCFs/EA_{type}/{gene}.vcf.gz"
+    output:
+        ld=DATA_DIR + "LD_matrices/EA_{type}/{gene}.ld",
+        log=temp(DATA_DIR + "LD_matrices/EA_{type}/{gene}.log"),
+        nosex=temp(DATA_DIR + "LD_matrices/EA_{type}/{gene}.nosex")
+    params:
+        prefix=lambda wildcards, output: output.ld[:-3]
+    shell:
+        """
+        mkdir -p {DATA_DIR}LD_matrices/EA
+        conda activate plink-env
+        plink --vcf {input} --vcf-half-call m --allow-no-sex --r2 --out {params.prefix}
+        conda deactivate
+        """

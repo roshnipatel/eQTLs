@@ -2,14 +2,14 @@ import pandas as pd
 import argparse
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from call_eqtls import parse_genotypes
+from estimate_effect_sizes import parse_genotypes
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--samples", help="file mapping RNASeq samples to individual IDs", nargs='+')
     parser.add_argument("--sample_metadata", help="file with sample metadata info")
     parser.add_argument("--global_anc")
-    parser.add_argument("--pca")
+    parser.add_argument("--pca", nargs='+')
     parser.add_argument("--out")
     args = parser.parse_args()
     

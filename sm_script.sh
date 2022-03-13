@@ -3,11 +3,11 @@
 # Run with scripts/slurm_submission/snakemake_submission.sh if re-running
 # all eQTL calling; else okay to run in interactive session with sdev.
 
-snakemake --rerun-incomplete --keep-going -j 50 \
+snakemake --rerun-incomplete --keep-going -j 100 \
         --latency-wait 60 --wait-for-files \
         --cluster-config scripts/sm_slurm_config.json \
         --use-singularity \
-        -s Snakefile \
+        -s SNP_ascertainment_Snakefile \
         --cluster "sbatch -p {cluster.queue} \
                         -t {cluster.time} \
                         --ntasks-per-node={cluster.tasks} \

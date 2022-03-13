@@ -7,8 +7,8 @@
         "memory"    : 300,
         "time"      : "5:00",
         "name"      : "{rule}",
-        "output"    : "slurm/{rule}.out",
-        "error"     : "slurm/{rule}.err"
+        "output"    : "/scratch/groups/pritch/roshni/admixedPGS/eQTLs/slurm/{rule}.out",
+        "error"     : "/scratch/groups/pritch/roshni/admixedPGS/eQTLs/slurm/{rule}.err"
     },
     "annotate_genes":
     {
@@ -59,11 +59,6 @@
     {
         "memory"    : 1000
     },
-    "add_validation_samp":
-    {
-        "memory"    : 15000,
-        "time"      : "2:00:00"
-    },
     "partition_samples":
     {
         "memory"    : 15000,
@@ -73,33 +68,30 @@
     {
         "memory"    : 1000
     },
-    "call_eQTLs":
+    "ascertain_effect_sizes":
     {
-        "time"      : "10:00"
+        "memory"    : 500,
+        "time"      : "40:00"
     },
-    "merge_reestimation":
+    "concat_estimation":
     {
         "time"      : "4:00:00",
         "memory"    : 3000
     },
-    "merge_ascertainment":
+    "concat_ascertainment":
     {
         "time"      : "4:00:00",
         "memory"    : 3000
     },
     "extract_hits":
     {
-        "time"      : "30:00",
+        "time"      : "1:00:00",
         "memory"    : 3000
     },
     "identify_hits":
     {
-        "memory"    : 3000
-    },
-    "perform_simulation":
-    {
-        "time"      : "30:00",
-        "memory"    : 20000
+        "memory"    : 5000,
+        "time"      : "15:00"
     },
     "merge_data":
     {
@@ -108,12 +100,7 @@
     },
     "bootstrap":
     {
-        "time"      : "15:00",
-        "memory"    : 5000
-    },
-    "std_dev_analysis":
-    {
-        "time"      : "15:00",
+        "time"      : "30:00",
         "memory"    : 5000
     },
     "optimize_simulated_data":
@@ -126,29 +113,36 @@
         "time"      : "30:00",
         "memory"    : 10000
     },
-    "correlate_expression_noreg":
-    {
-        "time"      : "30:00",
-        "memory"    : 10000
-    },
     "anova_analysis":
     {
-        "time"      : "15:00",
+        "time"      : "1:00:00",
         "memory"    : 10000
+    },
+    "parse_bootstrap":
+    {
+        "time"      : "20:00"
     },
     "optimize":
     {
-        "time"      : "15:00",
+        "time"      : "30:00",
         "memory"    : 5000
     },
     "optimize_remove_val":
     {
-        "time"      : "15:00",
+        "time"      : "30:00",
         "memory"    : 5000
     },
     "likelihood":
     {
-        "memory"    : 10000,
-        "time"      : "24:00:00"
+        "memory"    : 15000,
+        "time"      : "1:00:00"
+    },
+    "mask_AA_VCF":
+    {
+        "memory"    : 3000
+    },
+    "mask_EA_VCF":
+    {
+        "memory"    : 3000
     }
 }

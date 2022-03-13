@@ -17,6 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('--ascertainment', action='store_true')
     parser.add_argument('--reestimation', action='store_true')
     parser.add_argument('--merged')
+    parser.add_argument('--tss')
     parser.add_argument('--hits', help="existing file of hits to select (used in reestimation mode)")
     parser.add_argument('--fdr', help="FDR threshold (used in ascertainment mode)")
     parser.add_argument('--out')
@@ -28,8 +29,19 @@ if __name__ == '__main__':
         # FDR threshold.
         fdr = float(args.fdr)
         all_SNPs = pd.read_csv(args.merged, sep='\t')
-        sig_SNPs = FDR_threshold(all_SNPs, "pval", fdr)
-        sig_SNPs = sig_SNPs.loc[sig_SNPs.groupby("gene")["pval"].idxmin()] 
+        gene_tss = pd.read_csv(args.tss, sep='\t', usecols=["start", "gene_id"])
+        all_SNPs = pd.merge(all_SNPs, gene_tss, left_on="gene", right_on="gene_id")
+        all_SNPs["pos"] = all_SNPs.apply(lambda row: int(row.ID.split('_')[1]), axis=1)
+        all_SNPs["dist"] = all_SNPs.apply(lambda row: abs(row.pos - row.start), axis=1)
+        all_SNPs["pval_round"] = all_SNPs.apply(lambda row: round(row.pval, 4), axis=1)
+
+        # First select SNPs with smallest p-value for each gene
+        min_pvals = all_SNPs.groupby("gene").pval_round.min().reset_index()
+        min_pval_SNPs = pd.merge(all_SNPs, min_pvals)
+
+        # Then choose nearest SNP to break ties
+        min_pval_dist_SNPs = min_pval_SNPs.loc[min_pval_SNPs.groupby("gene").dist.idxmin()]
+        sig_SNPs = FDR_threshold(min_pval_dist_SNPs, "pval", fdr)
         sig_SNPs.to_csv(args.out, index=False, sep='\t')
     elif args.reestimation: 
         # Extract hits from reestimation dataset based on existing ascertainment hits

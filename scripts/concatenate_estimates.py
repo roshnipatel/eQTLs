@@ -20,7 +20,7 @@ if __name__ == "__main__":
             # Catch error that results from an empty results file (e.g. no SNPs to test)
             continue
         tmp["gene"] = f[:-4]
-        concatenated = pd.concat([merged, tmp])
+        concatenated = pd.concat([concatenated, tmp])
         i += 1
     
-    merged.to_csv(args.out, sep='\t', index=False)
+    concatenated.to_csv(args.out, sep='\t', index=False)

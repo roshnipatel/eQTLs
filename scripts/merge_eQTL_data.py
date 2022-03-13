@@ -1,8 +1,30 @@
 import pandas as pd
 import argparse
 import numpy as np
-from call_eqtls import parse_genotypes
-from map_ancestry_genotypes import find_match, anc_geno_string
+from estimate_effect_sizes import parse_genotypes
+
+def find_match(x, df):
+    for idx, row in df.iterrows():
+        if row.stop > x:
+            if row.start < x:
+                return(idx)
+            return('before')
+    return('after')
+
+def anc_geno_string(tup, swap):
+    print(tup)
+    geno = {'CEU': 0, 'YRI': 0}
+    for i in range(2):
+        anc = tup[1].split(',')[i].strip()
+        if anc != "None":
+            count = int(tup[0].split('|')[i])
+            if swap:
+                count = 1 - count
+            geno[anc] += count
+        else:
+            return(None)
+    geno_str = '-'.join([str(i) for i in [geno['CEU'], geno['YRI']]])
+    return(geno_str)
 
 def combine_pheno_files(file_list, hits):
     """Merge phenotypes for all significant SNPs with gene name and SNP rsID."""
@@ -129,10 +151,10 @@ def prepare_merged_df(afr_hit_path, eur_hit_path, tract_path, n_genes, swap_alle
         pd.Series(x.ID.split('_')), axis=1) 
 
     # Specify which genotype and phenotype files need to be read
-    afr_geno_files = ["data/QTL_geno_input/Afr/" + g + ".vcf.gz" for g in all_genes]
-    afr_pheno_files = ["data/QTL_pheno_input/Afr/" + g + ".txt" for g in all_genes]
-    eur_geno_files = ["data/QTL_geno_input/Eur/" + g + ".vcf.gz" for g in all_genes]
-    eur_pheno_files = ["data/QTL_pheno_input/Eur/" + g + ".txt" for g in all_genes]
+    afr_geno_files = ["protected_data/QTL_geno_input/Afr/" + g + ".vcf.gz" for g in all_genes]
+    afr_pheno_files = ["protected_data/QTL_pheno_input/Afr/" + g + ".txt" for g in all_genes]
+    eur_geno_files = ["protected_data/QTL_geno_input/Eur/" + g + ".vcf.gz" for g in all_genes]
+    eur_pheno_files = ["protected_data/QTL_pheno_input/Eur/" + g + ".txt" for g in all_genes]
 
     # Subsamples SNPs/genes/phenotypes based on user-specified argument. 
     # Used mostly for debugging purposes with swap_alleles parameter.

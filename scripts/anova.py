@@ -3,45 +3,34 @@ import numpy as np
 import argparse
 from iterative_parameter_optimization import remove_ind
 
-def compute_var(exp_df, delta, coeff, curr_betas, ind):
-    """For a single gene, compute the proportion of expression variance 
-       explained by the model."""
-    gene = curr_betas.name
-    
-    # Specify which individuals are used to calculate variance explained
-    if ind == "all": # Use all individuals
-        curr_gene = exp_df.loc[exp_df.gene == gene]
-    elif ind == "AAEur": # Use only AA with Eur ancestry at locus
-        curr_gene = exp_df.loc[(exp_df.gene == gene) & ((exp_df.race == 1) 
-                               & (exp_df.local_ancestry < 2))]
-    elif ind == "AAAfr": # Use only AA with Afr ancestry at locus
-        curr_gene = exp_df.loc[(exp_df.gene == gene) & ((exp_df.race == 1) 
-                               & (exp_df.local_ancestry == 2))]
-    elif ind == "EA": # Use only EA
-        curr_gene = exp_df.loc[(exp_df.gene == gene) & (exp_df.race == 0)]
-
-    # Calculate variance of gene expression
-    var_exp = np.var(curr_gene.loc[:,"expression"])
-
-    # Calculate variance of predicted expression
-    pred = np.zeros(len(curr_gene))
-    for c in coeff:
-        if c == "intercept":
-            pred += curr_betas[c]
-        elif c[:3] == "int":
-            pred += curr_betas[c] * curr_gene.loc[:,c[4:]] 
-        elif c == "beta":
-            pred += curr_betas[c] * (curr_gene.loc[:,"genotype_Afr"] + 
-                    curr_gene.loc[:,"genotype_Eur"]) 
-        else:
-            pred += curr_betas[c] * curr_gene.loc[:,"genotype_" + c[-3:]] 
+def compute_var(curr_betas, delta, exp_df, model_terms):
+    """For a single gene, compute the proportion of 
+       expression variance unexplained by the model."""
+    gene = curr_betas.gene
+    curr_gene = exp_df.loc[exp_df.gene == gene]
+    # Sum up model terms
+    mod = np.zeros(len(curr_gene))
+    for term in model_terms:
+        mod += curr_betas[term] * curr_gene.loc[:,term]
     if delta != 0:
-        pred += delta * (curr_betas.beta_Afr - curr_betas.beta_Eur) * \
+        mod += delta * (curr_betas.genotype_Afr - curr_betas.genotype_Eur) * \
                 curr_gene.genotype_Eur * curr_gene.race
-    var_pred = np.var(pred)
+    var_exp = np.var(curr_gene.loc[:,"expression"])
+    resid = curr_gene.loc[:,"expression"] - mod
+    var_resid = np.var(resid)
+    # Return proportion residual variance
+    return(var_resid / var_exp)
 
-    # Return proportion variance explained by model 
-    return(var_pred / var_exp)
+def maf_filtered_genes(merged, maf_threshold):
+    def filter_helper(gene_df, maf_df, threshold):
+        filt_genes = gene_df.loc[(maf_df > threshold) & (maf_df < 1 - threshold)].reset_index().gene
+        return(filt_genes)
+    sum_df = merged.groupby(["gene", "ID"]).sum()
+    afr_maf = sum_df.genotype_Afr / sum_df.local_ancestry 
+    eur_maf = sum_df.genotype_Eur / ((sum_df.race_Afr + sum_df.race_Eur) * 2 - sum_df.local_ancestry)
+    afr_genes = filter_helper(sum_df, afr_maf, maf_threshold)
+    eur_genes = filter_helper(sum_df, eur_maf, maf_threshold)
+    return(pd.merge(afr_genes, eur_genes))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -50,6 +39,8 @@ if __name__ == '__main__':
     parser.add_argument('--betas')
     parser.add_argument('--ind')
     parser.add_argument('--validation')
+    parser.add_argument('--model_terms', nargs='+')
+    parser.add_argument('--mode')
     parser.add_argument('--out')
     args = parser.parse_args()
 
@@ -61,13 +52,51 @@ if __name__ == '__main__':
     merged_data = merged_data.groupby("gene").apply(lambda grp: 
                   remove_ind(grp, remove_matrix)).reset_index(drop=True)
 
-    # Read in fitted model coefficients (betas for each gene and delta)
-    betas = pd.read_csv(args.betas, sep='\t', index_col=0)
-    model_coeff = betas.columns
+    # Perform MAF filtering within smaller set of validation individuals
+    filtered_genes = maf_filtered_genes(merged_data, 0.05)
+
+    # Read in fitted delta
     with open(args.delta, 'r') as f:
         delta = float(f.readlines()[-1].strip())
 
+    # Read in fitted betas
+    betas = pd.read_csv(args.betas, sep='\t', index_col=0)
+    betas = pd.merge(betas, filtered_genes, left_index=True, right_on="gene")
+
+    # Rename columns of betas to match columns of merged_data
+    betas_cols = betas.columns
+    rename_dict = {}
+    for col in betas_cols:
+        if col[:4] == "int_":
+            rename_dict[col] = col[4:]
+        elif col[:5] == "beta_":
+            rename_dict[col] = "genotype_" + col[5:]
+        else:
+            rename_dict[col] = col
+    betas = betas.rename(columns=rename_dict)
+    
+    # If using a single beta b (i.e. not ancestry-specific betas bA and bE)
+    # then set coefficients of gA and gE equal to the same beta, b
+    if "beta" in rename_dict:
+        betas["genotype_Afr"] = betas.loc[:,"beta"]
+        betas["genotype_Eur"] = betas.loc[:,"beta"]
+
+    # If using model with single intercept c (i.e. not race-specific 
+    # intercepts cA and cE) then set coefficients of rA and rE equal to the
+    # same intercept, c
+    if "intercept" in rename_dict:
+        betas["race_Afr"] = betas.loc[:,"intercept"]
+        betas["race_Eur"] = betas.loc[:,"intercept"]
+
+    # If fitting genotype betas, add these terms to the set model_terms 
+    model_terms = set(args.model_terms)
+    model_terms.add("race_Afr")
+    model_terms.add("race_Eur")
+    if args.mode != "fit_no_beta":
+        model_terms.add("genotype_Afr") 
+        model_terms.add("genotype_Eur") 
+
     # Compute proportion variance explained by model in validation set
-    betas["prop_var"] = betas.apply(lambda row: 
-           compute_var(merged_data, delta, model_coeff, row, args.ind), axis=1)
-    betas.to_csv(args.out, index=True, columns=["prop_var"], sep='\t')
+    betas.loc[:,"prop_var"] = betas.apply(lambda row: 
+        compute_var(row, delta, merged_data, model_terms), axis=1)
+    betas.to_csv(args.out, index=False, columns=["gene", "prop_var"], sep='\t')
